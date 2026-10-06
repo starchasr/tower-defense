@@ -192,24 +192,36 @@ button.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0
 .badge.air { border-color: #a855f7; color: #d8b4fe; }
 .cd { margin-top: 8px; font-size: 12px; color: var(--dim); text-align: center; }
 
-.shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 6px; }
 
-.tower-card {
-  text-align: left;
-  padding: 8px 10px;
+.tower-tile {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px 6px;
 }
+.tower-tile.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.tower-tile.poor { opacity: 0.5; }
 
-.tower-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-.tower-card.poor { opacity: 0.55; }
-
-.tc-head { display: flex; align-items: center; gap: 8px; }
-.swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
-.tc-name { font-weight: 700; font-size: 13px; }
-.tc-cost { color: var(--gold); margin-left: auto; font-weight: 700; }
-.tc-cost.deal-price { color: #4ade80; }
+.ti { display: grid; place-items: center; height: 24px; }
+.ti svg { display: block; }
+.ti-cost { font-size: 10.5px; font-weight: 700; color: var(--gold); }
+.ti-cost.deal-price { color: #4ade80; }
+.ti-key {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 9px;
+  line-height: 1.4;
+  color: var(--dim);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+.shop-hint { font-size: 11px; color: var(--dim); line-height: 1.45; margin-top: 7px; }
+.shop-hint b { font-size: 12px; }
 
 .deal {
   display: flex;
@@ -234,14 +246,6 @@ button.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0
 }
 .deal-text { font-size: 12px; color: var(--text, #e2e8f0); }
 .deal-text i { opacity: 0.65; font-style: normal; font-size: 11px; }
-.tc-key {
-  font-size: 10px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--dim);
-  padding: 1px 5px;
-}
-.tc-desc { font-size: 10.5px; color: var(--dim); line-height: 1.35; }
 
 .stats {
   display: grid;
@@ -505,7 +509,7 @@ button.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0
     box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
   }
 
-  .shop-grid { grid-template-columns: repeat(2, 1fr); }
+  .shop-grid { grid-template-columns: repeat(4, 1fr); }
   .story-grid { grid-template-columns: 1fr; width: 100%; max-width: 420px; gap: 10px; }
   .story-card { padding: 14px 14px; }
   .story-name { font-size: 16px; letter-spacing: 2px; }
