@@ -1280,6 +1280,10 @@ export class Game {
     };
   }
 
+  recenterCamera() {
+    this.renderer.recenter();
+  }
+
   private getSnapshot(): UiSnapshot {
     const t = this.selTower !== null ? this.towers.find(x => x.id === this.selTower) ?? null : null;
     let selTower: UiSnapshot['selTower'] = null;

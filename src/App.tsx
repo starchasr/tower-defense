@@ -44,7 +44,7 @@ export default function App() {
       </div>
       {game && ui && (
         <>
-          <button className="cam-recenter" onClick={() => game.renderer.recenter()} title="Re-center camera">⌖</button>
+          <button className="cam-recenter" onClick={() => game.recenterCamera()} title="Re-center camera">⌖</button>
           <button className={`panel-toggle${panelOpen ? ' open' : ''}`} onClick={() => setPanelOpen(v => !v)}>
             {panelOpen ? 'Hide ▾' : 'Towers ▴'}
           </button>
