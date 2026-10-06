@@ -1293,7 +1293,18 @@ export class Renderer3D {
   }
 
   private attachControls() {    const el = this.glCanvas;
+    const active = new Map<number, { x: number; y: number }>();
+    let lastPinch = 0;
+    const pinchDist = () => {
+      const pts = [...active.values()];
+      return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    };
     el.addEventListener('pointerdown', e => {
+      active.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (active.size === 2) {
+        lastPinch = pinchDist();
+        return;
+      }
       this.dragBtn = e.button;
       this.lastPt = { x: e.clientX, y: e.clientY };
       this.dragDist = 0;
@@ -1306,6 +1317,16 @@ export class Renderer3D {
       }
     });
     el.addEventListener('pointermove', e => {
+      if (!active.has(e.pointerId)) return;
+      active.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (active.size >= 2) {
+        const d = pinchDist();
+        if (lastPinch > 0 && d > 0) {
+          this.radiusT = Math.min(2600, Math.max(480, (this.radiusT * lastPinch) / d));
+        }
+        lastPinch = d;
+        return;
+      }
       if (this.dragBtn === -1) return;
       const dx = e.clientX - this.lastPt.x;
       const dy = e.clientY - this.lastPt.y;
@@ -1322,9 +1343,13 @@ export class Renderer3D {
         this.targetT.z = Math.min(H + 150, Math.max(-150, this.targetT.z - (-dx * sinT - dy * cosT) * panScale));
       }
     });
-    window.addEventListener('pointerup', () => {
+    const release = (e: PointerEvent) => {
+      active.delete(e.pointerId);
+      lastPinch = 0;
       this.dragBtn = -1;
-    });
+    };
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
     el.addEventListener('wheel', e => {
       e.preventDefault();
       this.radiusT = Math.min(2600, Math.max(480, this.radiusT * Math.exp(e.deltaY * 0.0012)));

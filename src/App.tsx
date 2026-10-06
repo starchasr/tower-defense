@@ -13,6 +13,7 @@ export default function App() {
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
   const [game, setGame] = useState<Game | null>(null);
   const [ui, setUi] = useState<UiSnapshot | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
 
   useEffect(() => {
     const gl = glRef.current;
@@ -43,7 +44,10 @@ export default function App() {
       </div>
       {game && ui && (
         <>
-          <aside className="panel">
+          <button className={`panel-toggle${panelOpen ? ' open' : ''}`} onClick={() => setPanelOpen(v => !v)}>
+            {panelOpen ? 'Hide ▾' : 'Towers ▴'}
+          </button>
+          <aside className={`panel${panelOpen ? ' open' : ''}`}>
             <WaveBox ui={ui} game={game} />
             <Shop ui={ui} game={game} />
             <TowerPanel ui={ui} game={game} />
