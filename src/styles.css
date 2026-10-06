@@ -506,10 +506,38 @@ button.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0
   }
 
   .shop-grid { grid-template-columns: repeat(2, 1fr); }
-  .story-grid { grid-template-columns: 1fr; width: 100%; max-width: 420px; }
+  .story-grid { grid-template-columns: 1fr; width: 100%; max-width: 420px; gap: 10px; }
+  .story-card { padding: 14px 14px; }
+  .story-name { font-size: 16px; letter-spacing: 2px; }
+  .story-blurb { min-height: 0; font-size: 12px; }
   .level-grid { grid-template-columns: repeat(2, 1fr); width: 100%; max-width: 420px; }
-  .overlay { padding: 16px; gap: 10px; }
-  .overlay h2 { font-size: 24px; letter-spacing: 4px; }
+  .level-node { padding: 12px 12px; }
+  .level-node .level-name { font-size: 12px; }
+
+  .overlay {
+    justify-content: flex-start;
+    padding: 22px 14px 96px;
+    gap: 11px;
+  }
+
+  .overlay h2 { font-size: 24px; letter-spacing: 4px; line-height: 1.25; }
+  .overlay .tagline { font-size: 10.5px; letter-spacing: 2px; line-height: 1.5; }
+  .overlay .sub { width: 100%; max-width: 420px; line-height: 1.55; }
+  .overlay p { margin: 0; }
+
+  .overlay .row,
+  .diff-row {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .overlay .row button,
+  .diff-row button { flex: 1 1 140px; }
+
+  button.big { padding: 12px 20px; font-size: 14.5px; }
+
   .rules, .help { display: none; }
   .stats { grid-template-columns: 1fr; }
   .speeds button { padding: 6px 10px; }
