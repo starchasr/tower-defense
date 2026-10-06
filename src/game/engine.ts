@@ -13,7 +13,7 @@ import { Renderer3D } from './renderer3d';
 import { dayPhase, rainAmount } from './daycycle';
 import type {
   AbilityId, DifficultyId, Enemy, GameState, GhostInfo, Projectile, RenderEffect, RenderState, TargetMode,
-  Tower, TowerKind, TowerLevel, UiSnapshot, Vec,
+  Tower, TowerKind, TowerLevel, UiSnapshot, Vec, WeatherMode,
 } from './types';
 
 type Effect = RenderEffect;
@@ -96,6 +96,7 @@ export class Game {
   muted = false;
   endless = false;
   autoStart = true;
+  weather: WeatherMode = 'auto';
   difficulty: DifficultyId = 'normal';
   highScore = 0;
   private diffHp = 1;
@@ -268,6 +269,17 @@ export class Game {
     this.sfx.setMuted(!this.sfx.muted);
     this.muted = this.sfx.muted;
     this.emit();
+  }
+
+  cycleWeather() {
+    this.weather = this.weather === 'auto' ? 'clear' : this.weather === 'clear' ? 'rain' : 'auto';
+    this.emit();
+  }
+
+  private effRain(): number {
+    if (this.weather === 'clear') return 0;
+    if (this.weather === 'rain') return 1;
+    return rainAmount(this.elapsed);
   }
 
   selectKind(k: TowerKind | null) {
@@ -895,7 +907,7 @@ export class Game {
     this.freezeFlash = Math.max(0, this.freezeFlash - dt);
     this.overdriveT = Math.max(0, this.overdriveT - dt);
     this.sfx.ambience(dayPhase(this.elapsed).daylight, dt);
-    const rain = rainAmount(this.elapsed);
+    const rain = this.effRain();
     if (Math.abs(rain - this.lastRain) > 0.01) {
       this.lastRain = rain;
       this.sfx.setRain(rain);
@@ -1267,6 +1279,7 @@ export class Game {
       dmgFlash: this.dmgFlash,
       lowLives: this.lives > 0 && this.lives <= 5,
       elapsed: this.elapsed,
+      weatherRain: rain,
       ghost,
       countdown: this.countdown,
       nextWaveNum: this.wave + 1,
@@ -1316,6 +1329,7 @@ export class Game {
     return {
       state: this.state, money: Math.floor(this.money), lives: this.lives,
       wave: this.wave, score: this.score, speed: this.speed, muted: this.muted,
+      weather: this.weather,
       endless: this.endless, difficulty: this.difficulty, highScore: this.highScore,
       autoStart: this.autoStart,
       waveActive: this.waveSpawned,

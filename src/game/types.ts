@@ -188,6 +188,7 @@ export interface UiSnapshot {
   score: number;
   speed: number;
   muted: boolean;
+  weather: WeatherMode;
   endless: boolean;
   difficulty: DifficultyId;
   highScore: number;
@@ -237,6 +238,8 @@ export interface GhostInfo {
   color: string;
 }
 
+export type WeatherMode = 'auto' | 'clear' | 'rain';
+
 export interface RenderState {
   towers: Tower[];
   enemies: Enemy[];
@@ -251,6 +254,7 @@ export interface RenderState {
   dmgFlash: number;
   lowLives: boolean;
   elapsed: number;
+  weatherRain: number;
   ghost: GhostInfo | null;
   countdown: number;
   nextWaveNum: number;

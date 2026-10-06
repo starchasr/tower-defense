@@ -34,6 +34,7 @@ export function Hud({ ui, game }: { ui: UiSnapshot; game: Game }) {
         ))}
       </div>
       <button className="icon" onClick={() => game.togglePause()}>{ui.state === 'paused' ? 'Resume' : 'Pause'}</button>
+      <button className="icon" onClick={() => game.cycleWeather()}>Rain {ui.weather === 'auto' ? 'auto' : ui.weather === 'clear' ? 'off' : 'on'}</button>
       <button className="icon" onClick={() => game.toggleMute()}>Sound {ui.muted ? 'off' : 'on'}</button>
     </div>
   );

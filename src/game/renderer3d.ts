@@ -7,7 +7,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { CELL, COLS, DECOR, GROUND_PATH, H, PATH_CELLS, POOL_CLUSTERS, ROWS, TREE_CELLS, TERRAIN, TUFTS, W, biome, getLayout } from './map';
 import { TOWERS } from './config';
-import { dayPhase, rainAmount } from './daycycle';
+import { dayPhase } from './daycycle';
 import {
   cloudShadowTexture, grassBumpTex, grassTexture, metalBumpTex, metalTexture, nightSkyTexture, pathBumpTex, pathTexture,
   photoTex, scorchTexture, skyTexture, stoneBumpTex, stoneTexture, tiled, tuftTexture,
@@ -1419,7 +1419,7 @@ export class Renderer3D {
     this.flashLight.intensity = Math.max(0, this.flashLight.intensity * (1 - 0.09) - 0.4);
 
     const ph = dayPhase(s.elapsed);
-    const rain = rainAmount(s.elapsed);
+    const rain = s.weatherRain;
     const sa = ph.a;
     this.sun.position.set(
       W / 2 + Math.cos(sa) * 900,
