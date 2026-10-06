@@ -129,7 +129,7 @@ button.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0
   pointer-events: none;
 }
 
-.panel {
+.panel-col {
   position: absolute;
   top: 64px;
   right: 12px;
@@ -445,7 +445,7 @@ button.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0
 
 .hud-toggle { display: none; }
 
-.panel-toggle { display: none; }
+.sheet-toggles { display: none; }
 
 @media (max-width: 820px) {
   button { touch-action: manipulation; min-height: 34px; }
@@ -508,21 +508,50 @@ button.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0
     box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
   }
 
-  .panel {
-    top: auto;
+  .panel-col { display: contents; }
+
+  .sheet {
+    position: absolute;
     left: 8px;
     right: 8px;
     bottom: 58px;
     width: auto;
     max-height: min(58vh, 480px);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
     transform: translateY(calc(100% + 70px));
     transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
     pointer-events: none;
   }
 
-  .panel.open {
-    transform: translateY(0);
+  .sheet.open {
+    transform: none;
     pointer-events: auto;
+  }
+
+  .wave-panel { z-index: 11; }
+
+  .sheet-toggles {
+    display: flex;
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 12;
+    gap: 8px;
+  }
+
+  .sheet-toggle {
+    padding: 10px 20px;
+    border-radius: 99px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    background: linear-gradient(180deg, rgba(21, 33, 58, 0.94), rgba(17, 27, 47, 0.96));
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(56, 90, 140, 0.55);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
   }
 
   .cam-recenter {
@@ -536,23 +565,6 @@ button.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0
     border-radius: 50%;
     font-size: 20px;
     line-height: 1;
-    background: linear-gradient(180deg, rgba(21, 33, 58, 0.94), rgba(17, 27, 47, 0.96));
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(56, 90, 140, 0.55);
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
-  }
-
-  .panel-toggle {
-    display: block;
-    position: absolute;
-    bottom: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 12;
-    padding: 10px 26px;
-    border-radius: 99px;
-    font-weight: 800;
-    letter-spacing: 0.5px;
     background: linear-gradient(180deg, rgba(21, 33, 58, 0.94), rgba(17, 27, 47, 0.96));
     backdrop-filter: blur(10px);
     border: 1px solid rgba(56, 90, 140, 0.55);
@@ -632,7 +644,9 @@ button.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0
 
   .abilities button { padding: 5px 8px; }
 
-  .panel {
+  .panel-col { display: contents; }
+
+  .sheet {
     left: auto;
     top: 52px;
     bottom: 10px;
@@ -642,14 +656,28 @@ button.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0
     transform: translateX(calc(100% + 20px));
   }
 
-  .panel.open { transform: none; }
+  .sheet.open { transform: none; }
 
-  .panel-toggle {
-    left: auto;
-    right: 12px;
+  .sheet-toggles {
+    display: flex;
+    position: absolute;
     bottom: 12px;
+    right: 12px;
+    left: auto;
     transform: none;
-    padding: 8px 18px;
+    z-index: 12;
+    gap: 8px;
+  }
+
+  .sheet-toggle {
+    padding: 8px 16px;
+    border-radius: 99px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    background: linear-gradient(180deg, rgba(21, 33, 58, 0.94), rgba(17, 27, 47, 0.96));
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(56, 90, 140, 0.55);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
   }
 
   .cam-recenter { right: auto; left: 12px; bottom: 12px; }

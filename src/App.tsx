@@ -14,6 +14,7 @@ export default function App() {
   const [game, setGame] = useState<Game | null>(null);
   const [ui, setUi] = useState<UiSnapshot | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [waveOpen, setWaveOpen] = useState(false);
   const [hudOpen, setHudOpen] = useState(false);
 
   useEffect(() => {
@@ -39,7 +40,14 @@ export default function App() {
   return (
     <div className="app">
       {game && ui && <Hud ui={ui} game={game} open={hudOpen} />}
-      <div className="canvas-stack">
+      <div
+        className="canvas-stack"
+        onPointerDown={() => {
+          setPanelOpen(false);
+          setWaveOpen(false);
+          setHudOpen(false);
+        }}
+      >
         <canvas ref={glRef} className="gl-canvas" />
         <canvas ref={overlayRef} className="fx-canvas" />
       </div>
@@ -53,31 +61,40 @@ export default function App() {
           <button className={`hud-toggle${hudOpen ? ' open' : ''}`} onClick={() => setHudOpen(v => !v)}>
             {hudOpen ? 'Hide stats ▴' : 'Stats ▾'}
           </button>
-          <button className={`panel-toggle${panelOpen ? ' open' : ''}`} onClick={() => setPanelOpen(v => !v)}>
-            {panelOpen ? 'Hide ▾' : 'Towers ▴'}
-          </button>
-          <aside className={`panel${panelOpen ? ' open' : ''}`}>
-            <WaveBox ui={ui} game={game} />
-            <Shop ui={ui} game={game} />
-            <TowerPanel ui={ui} game={game} />
-            <div className="help card">
-              <h3>Hotkeys</h3>
-              <div className="keys">
-                <span><b>1–9</b> towers</span>
-                <span><b>Space</b> call wave</span>
-                <span><b>A/S/D/F/G</b> abilities</span>
-                <span><b>U</b> upgrade</span>
-                <span><b>X</b> sell</span>
-                <span><b>Q/W/E/R</b> targeting</span>
-                <span><b>P</b> pause</span>
-                <span><b>Esc</b> cancel / pause</span>
-                <span><b>M</b> mute</span>
-                <span><b>Drag</b> orbit camera</span>
-                <span><b>Click enemy</b> focus fire</span>
-                <span><b>Wheel</b> zoom</span>
+          <div className="sheet-toggles">
+            <button className={`sheet-toggle${panelOpen ? ' open' : ''}`} onClick={() => { setPanelOpen(v => !v); setWaveOpen(false); }}>
+              {panelOpen ? 'Towers ▾' : 'Towers ▴'}
+            </button>
+            <button className={`sheet-toggle${waveOpen ? ' open' : ''}`} onClick={() => { setWaveOpen(v => !v); setPanelOpen(false); }}>
+              {waveOpen ? 'Wave ▾' : 'Wave ▴'}
+            </button>
+          </div>
+          <div className="panel-col">
+            <aside className={`sheet wave-panel${waveOpen ? ' open' : ''}`}>
+              <WaveBox ui={ui} game={game} />
+            </aside>
+            <aside className={`sheet towers-panel${panelOpen ? ' open' : ''}`}>
+              <Shop ui={ui} game={game} />
+              <TowerPanel ui={ui} game={game} />
+              <div className="help card">
+                <h3>Hotkeys</h3>
+                <div className="keys">
+                  <span><b>1–9</b> towers</span>
+                  <span><b>Space</b> call wave</span>
+                  <span><b>A/S/D/F/G</b> abilities</span>
+                  <span><b>U</b> upgrade</span>
+                  <span><b>X</b> sell</span>
+                  <span><b>Q/W/E/R</b> targeting</span>
+                  <span><b>P</b> pause</span>
+                  <span><b>Esc</b> cancel / pause</span>
+                  <span><b>M</b> mute</span>
+                  <span><b>Drag</b> orbit camera</span>
+                  <span><b>Click enemy</b> focus fire</span>
+                  <span><b>Wheel</b> zoom</span>
+                </div>
               </div>
-            </div>
-          </aside>
+            </aside>
+          </div>
           <Overlay ui={ui} game={game} />
         </>
       )}
