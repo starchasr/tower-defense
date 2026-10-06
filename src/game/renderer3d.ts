@@ -1292,6 +1292,11 @@ export class Renderer3D {
     }
   }
 
+  recenter() {
+    this.targetT.set(W / 2, 0, H / 2);
+    this.radiusT = 1250;
+  }
+
   private panBy(dx: number, dy: number) {
     const panScale = this.radius * 0.0016;
     const sinT = Math.sin(this.theta);
