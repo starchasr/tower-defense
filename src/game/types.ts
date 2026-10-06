@@ -255,6 +255,7 @@ export interface RenderState {
   lowLives: boolean;
   elapsed: number;
   weatherRain: number;
+  weather: WeatherMode;
   ghost: GhostInfo | null;
   countdown: number;
   nextWaveNum: number;

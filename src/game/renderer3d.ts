@@ -1420,6 +1420,7 @@ export class Renderer3D {
 
     const ph = dayPhase(s.elapsed);
     const rain = s.weatherRain;
+    const clear = s.weather === 'clear';
     const sa = ph.a;
     this.sun.position.set(
       W / 2 + Math.cos(sa) * 900,
@@ -1454,8 +1455,12 @@ export class Renderer3D {
     this.grassMatRef.roughness = 0.95 - 0.4 * rain;
     this.pathMatRef.metalness = 0.28 * rain;
     this.pathMatRef.roughness = 0.92 - 0.38 * rain;
-    this.cloudMat.opacity = 0.16 + 0.22 * rain;
+    this.cloudMat.opacity = clear ? 0 : 0.16 + 0.22 * rain;
     this.cloudMat.color.set('#f4f7ff').lerp(new THREE.Color('#8e9cb0'), rain * 0.7);
+    for (const c of this.clouds) {
+      c.group.visible = !clear;
+      c.blob.visible = !clear;
+    }
 
     const dropPos = (this.rainLines.geometry.getAttribute('position') as THREE.BufferAttribute).array as Float32Array;
     this.rainMat.opacity = 0.3 * rain;
@@ -1574,7 +1579,7 @@ export class Renderer3D {
       this.phi += (this.phiT - this.phi) * camK;
       this.target.lerp(this.targetT, camK);
     }
-    const mistAmt = Math.exp(-((ph.daylight - 0.3) ** 2) / 0.018) * (1 - rain * 0.7);
+    const mistAmt = clear ? 0 : Math.exp(-((ph.daylight - 0.3) ** 2) / 0.018) * (1 - rain * 0.7);
     for (const m of this.mists) {
       m.mesh.position.x += m.speed * rdt;
       if (m.mesh.position.x > W + 700) m.mesh.position.x = -700;

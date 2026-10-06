@@ -1280,6 +1280,7 @@ export class Game {
       lowLives: this.lives > 0 && this.lives <= 5,
       elapsed: this.elapsed,
       weatherRain: this.effRain(),
+      weather: this.weather,
       ghost,
       countdown: this.countdown,
       nextWaveNum: this.wave + 1,

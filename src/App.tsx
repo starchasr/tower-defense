@@ -45,6 +45,10 @@ export default function App() {
       </div>
       {game && ui && (
         <>
+          <div className={`hud-mini${hudOpen ? ' hidden' : ''}`}>
+            <span className="mini-lives">♥ {ui.lives}</span>
+            <span className="mini-gold">${ui.money}</span>
+          </div>
           <button className="cam-recenter" onClick={() => game.recenterCamera()} title="Re-center camera">⌖</button>
           <button className={`hud-toggle${hudOpen ? ' open' : ''}`} onClick={() => setHudOpen(v => !v)}>
             {hudOpen ? 'Hide stats ▴' : 'Stats ▾'}
