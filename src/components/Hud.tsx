@@ -3,9 +3,9 @@ import type { UiSnapshot } from '../game/types';
 import { FINAL_WAVE } from '../game/config';
 import { hpScale } from '../game/waves';
 
-export function Hud({ ui, game }: { ui: UiSnapshot; game: Game }) {
+export function Hud({ ui, game, open = true }: { ui: UiSnapshot; game: Game; open?: boolean }) {
   return (
-    <div className="hud">
+    <div className={`hud${open ? ' open' : ''}`}>
       <span className="stat lives">Lives {ui.lives}</span>
       <span className="stat gold">Gold {ui.money}</span>
       <span className="stat">

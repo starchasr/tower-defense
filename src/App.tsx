@@ -14,6 +14,7 @@ export default function App() {
   const [game, setGame] = useState<Game | null>(null);
   const [ui, setUi] = useState<UiSnapshot | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [hudOpen, setHudOpen] = useState(false);
 
   useEffect(() => {
     const gl = glRef.current;
@@ -37,7 +38,7 @@ export default function App() {
 
   return (
     <div className="app">
-      {game && ui && <Hud ui={ui} game={game} />}
+      {game && ui && <Hud ui={ui} game={game} open={hudOpen} />}
       <div className="canvas-stack">
         <canvas ref={glRef} className="gl-canvas" />
         <canvas ref={overlayRef} className="fx-canvas" />
@@ -45,6 +46,9 @@ export default function App() {
       {game && ui && (
         <>
           <button className="cam-recenter" onClick={() => game.recenterCamera()} title="Re-center camera">⌖</button>
+          <button className={`hud-toggle${hudOpen ? ' open' : ''}`} onClick={() => setHudOpen(v => !v)}>
+            {hudOpen ? 'Hide stats ▴' : 'Stats ▾'}
+          </button>
           <button className={`panel-toggle${panelOpen ? ' open' : ''}`} onClick={() => setPanelOpen(v => !v)}>
             {panelOpen ? 'Hide ▾' : 'Towers ▴'}
           </button>
