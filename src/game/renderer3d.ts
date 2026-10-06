@@ -1292,17 +1292,31 @@ export class Renderer3D {
     }
   }
 
+  private panBy(dx: number, dy: number) {
+    const panScale = this.radius * 0.0016;
+    const sinT = Math.sin(this.theta);
+    const cosT = Math.cos(this.theta);
+    this.targetT.x = Math.min(W + 150, Math.max(-150, this.targetT.x - (dx * cosT - dy * sinT) * panScale));
+    this.targetT.z = Math.min(H + 150, Math.max(-150, this.targetT.z - (-dx * sinT - dy * cosT) * panScale));
+  }
+
   private attachControls() {    const el = this.glCanvas;
     const active = new Map<number, { x: number; y: number }>();
     let lastPinch = 0;
+    let lastMid: { x: number; y: number } | null = null;
     const pinchDist = () => {
       const pts = [...active.values()];
       return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    };
+    const midPt = () => {
+      const pts = [...active.values()];
+      return { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
     };
     el.addEventListener('pointerdown', e => {
       active.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (active.size === 2) {
         lastPinch = pinchDist();
+        lastMid = midPt();
         return;
       }
       this.dragBtn = e.button;
@@ -1325,6 +1339,9 @@ export class Renderer3D {
           this.radiusT = Math.min(2600, Math.max(480, (this.radiusT * lastPinch) / d));
         }
         lastPinch = d;
+        const m = midPt();
+        if (lastMid) this.panBy(m.x - lastMid.x, m.y - lastMid.y);
+        lastMid = m;
         return;
       }
       if (this.dragBtn === -1) return;
@@ -1336,16 +1353,13 @@ export class Renderer3D {
         this.thetaT -= dx * 0.005;
         this.phiT = Math.min(1.32, Math.max(0.3, this.phiT - dy * 0.005));
       } else {
-        const panScale = this.radius * 0.0016;
-        const sinT = Math.sin(this.theta);
-        const cosT = Math.cos(this.theta);
-        this.targetT.x = Math.min(W + 150, Math.max(-150, this.targetT.x - (dx * cosT - dy * sinT) * panScale));
-        this.targetT.z = Math.min(H + 150, Math.max(-150, this.targetT.z - (-dx * sinT - dy * cosT) * panScale));
+        this.panBy(dx, dy);
       }
     });
     const release = (e: PointerEvent) => {
       active.delete(e.pointerId);
       lastPinch = 0;
+      lastMid = null;
       this.dragBtn = -1;
     };
     window.addEventListener('pointerup', release);
