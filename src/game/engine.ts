@@ -1279,7 +1279,7 @@ export class Game {
       dmgFlash: this.dmgFlash,
       lowLives: this.lives > 0 && this.lives <= 5,
       elapsed: this.elapsed,
-      weatherRain: rain,
+      weatherRain: this.effRain(),
       ghost,
       countdown: this.countdown,
       nextWaveNum: this.wave + 1,
