@@ -175,6 +175,126 @@ function distToPath(x: number, z: number): number {
   return best;
 }
 
+interface PathSample { x: number; z: number; tx: number; tz: number; d: number }
+
+function pathSamples(step: number): PathSample[] {
+  const raw: { x: number; z: number }[] = [];
+  for (let i = 0; i < GROUND_PATH.length; i++) {
+    if (i === 0) {
+      raw.push({ x: GROUND_PATH[0].x, z: GROUND_PATH[0].y });
+      continue;
+    }
+    const a = GROUND_PATH[i - 1];
+    const b = GROUND_PATH[i];
+    const seg = Math.hypot(b.x - a.x, b.y - a.y);
+    const n = Math.max(1, Math.ceil(seg / step));
+    for (let k = 1; k <= n; k++) {
+      raw.push({ x: a.x + ((b.x - a.x) * k) / n, z: a.y + ((b.y - a.y) * k) / n });
+    }
+  }
+  let d = 0;
+  return raw.map((p, i) => {
+    if (i > 0) d += Math.hypot(p.x - raw[i - 1].x, p.z - raw[i - 1].z);
+    const pa = raw[Math.max(0, i - 1)];
+    const pb = raw[Math.min(raw.length - 1, i + 1)];
+    let tx = pb.x - pa.x;
+    let tz = pb.z - pa.z;
+    const tl = Math.hypot(tx, tz) || 1;
+    tx /= tl;
+    tz /= tl;
+    return { x: p.x, z: p.z, tx, tz, d };
+  });
+}
+
+function hashNoise(v: number): number {
+  const x = Math.sin(v * 127.1) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+function flatRibbonGeo(s: PathSample[], half: number, y: number, vLen: number, off = 0, shade = 1): THREE.BufferGeometry {
+  const n = s.length;
+  const pos = new Float32Array(n * 6);
+  const uv = new Float32Array(n * 4);
+  const col = new Float32Array(n * 6);
+  const nor = new Float32Array(n * 6);
+  for (let i = 0; i < n; i++) {
+    const p = s[i];
+    const nx = -p.tz;
+    const nz = p.tx;
+    const c = shade * (0.86 + 0.18 * hashNoise(p.d * 0.021 + p.x * 0.003));
+    for (let k = 0; k < 2; k++) {
+      const side = k === 0 ? -1 : 1;
+      const v = i * 6 + k * 3;
+      pos[v] = p.x + nx * (off + side * half);
+      pos[v + 1] = y;
+      pos[v + 2] = p.z + nz * (off + side * half);
+      nor[v] = 0;
+      nor[v + 1] = 1;
+      nor[v + 2] = 0;
+      const u = i * 4 + k * 2;
+      uv[u] = k;
+      uv[u + 1] = p.d / vLen;
+      col[v] = c;
+      col[v + 1] = c;
+      col[v + 2] = c;
+    }
+  }
+  const idx: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    const a = i * 2;
+    idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.setIndex(idx);
+  return geo;
+}
+
+function wallStripGeo(s: PathSample[], off: number, yTop: number, yBot: number, vLen: number, shade = 1): THREE.BufferGeometry {
+  const n = s.length;
+  const pos = new Float32Array(n * 6);
+  const uv = new Float32Array(n * 4);
+  const col = new Float32Array(n * 6);
+  const nor = new Float32Array(n * 6);
+  const nrmSign = off >= 0 ? 1 : -1;
+  for (let i = 0; i < n; i++) {
+    const p = s[i];
+    const nx = -p.tz * nrmSign;
+    const nz = p.tx * nrmSign;
+    const c = shade * (0.86 + 0.18 * hashNoise(p.d * 0.021 + p.z * 0.003));
+    for (let k = 0; k < 2; k++) {
+      const v = i * 6 + k * 3;
+      pos[v] = p.x + nx * Math.abs(off);
+      pos[v + 1] = k === 0 ? yTop : yBot;
+      pos[v + 2] = p.z + nz * Math.abs(off);
+      nor[v] = nx;
+      nor[v + 1] = 0;
+      nor[v + 2] = nz;
+      const u = i * 4 + k * 2;
+      uv[u] = p.d / vLen;
+      uv[u + 1] = k;
+      col[v] = c;
+      col[v + 1] = c;
+      col[v + 2] = c;
+    }
+  }
+  const idx: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    const a = i * 2;
+    idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.setIndex(idx);
+  return geo;
+}
+
 type Pt2 = [number, number];
 
 function metaballContours(blobs: { x: number; y: number; r: number }[], step: number, noiseSeed: number): Pt2[][] {
@@ -614,15 +734,11 @@ export class Renderer3D {
     this.scene.add(terrain);
     this.levelMeshes.push(terrain);
 
-    const pathTiles: THREE.Vector3[] = [];
     const nearTiles: THREE.Vector3[] = [];
     for (let gy = 0; gy < ROWS; gy++) {
       for (let gx = 0; gx < COLS; gx++) {
         const p = new THREE.Vector3((gx + 0.5) * CELL, 0, (gy + 0.5) * CELL);
-        if (PATH_CELLS.has(`${gx},${gy}`)) {
-          pathTiles.push(p);
-          continue;
-        }
+        if (PATH_CELLS.has(`${gx},${gy}`)) continue;
         const near =
           PATH_CELLS.has(`${gx - 1},${gy}`) || PATH_CELLS.has(`${gx + 1},${gy}`) ||
           PATH_CELLS.has(`${gx},${gy - 1}`) || PATH_CELLS.has(`${gx},${gy + 1}`);
@@ -662,55 +778,70 @@ export class Renderer3D {
       roughness: b.road === 'paved' ? 0.8 : b.road === 'swamp' ? 0.85 : 0.92,
       metalness: 0,
       color: b.pathTint,
+      vertexColors: true,
     });
     if (!pathNor) pathMat.bumpMap = tiled(procBump(), 1, 1);
     this.pathMatRef = pathMat;
+    if (pathMat.map) {
+      pathMat.map.wrapS = THREE.RepeatWrapping;
+      pathMat.map.wrapT = THREE.RepeatWrapping;
+    }
 
     const pushInstanced = (mesh: THREE.InstancedMesh) => {
       mesh.receiveShadow = true;
       this.scene.add(mesh);
       this.levelMeshes.push(mesh);
     };
+    const pushMesh = (mesh: THREE.Mesh) => {
+      mesh.receiveShadow = true;
+      this.scene.add(mesh);
+      this.levelMeshes.push(mesh);
+    };
 
-    const boundary: [THREE.Vector3, number, number][] = [];
-    for (const p of pathTiles) {
-      const gx = Math.floor(p.x / CELL);
-      const gy = Math.floor(p.z / CELL);
-      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-        if (!PATH_CELLS.has(`${gx + dx},${gy + dz}`)) boundary.push([p, dx, dz]);
-      }
-    }
+    const samples = pathSamples(12);
+    const totalD = samples[samples.length - 1].d;
 
     if (b.road === 'swamp') {
+      const mudMat = new THREE.MeshStandardMaterial({ color: '#241d2b', roughness: 0.95, metalness: 0 });
+      pushMesh(new THREE.Mesh(flatRibbonGeo(samples, (CELL + 0.5) / 2, 0.12, CELL, 0, 1), mudMat));
+
+      const plankMat = pathMat.clone();
+      plankMat.vertexColors = false;
       const plankGeo = new THREE.BoxGeometry(CELL - 9, 1.1, 10);
+      const plankMesh = new THREE.InstancedMesh(plankGeo, plankMat, Math.ceil(totalD / 40) * 3 + 6);
       const postGeo = new THREE.BoxGeometry(2.2, 7, 2.2);
-      const plankMesh = new THREE.InstancedMesh(plankGeo, pathMat, pathTiles.length * 3);
-      const postMesh = new THREE.InstancedMesh(postGeo, new THREE.MeshStandardMaterial({ color: '#2a2130', roughness: 0.9 }), pathTiles.length * 6);
+      const postMat = new THREE.MeshStandardMaterial({ color: '#2a2130', roughness: 0.9 });
+      const postMesh = new THREE.InstancedMesh(postGeo, postMat, Math.ceil(totalD / 48) * 2 + 4);
       const pm2 = new THREE.Matrix4();
       const pq2 = new THREE.Quaternion();
+      const up = new THREE.Vector3(0, 1, 0);
       const pc2 = new THREE.Color();
       let pi = 0;
       let qi = 0;
-      for (const p of pathTiles) {
-        const gx = Math.floor(p.x / CELL);
-        const gy = Math.floor(p.z / CELL);
-        const horiz = PATH_CELLS.has(`${gx + 1},${gy}`) || PATH_CELLS.has(`${gx - 1},${gy}`);
-        pq2.setFromAxisAngle(new THREE.Vector3(0, 1, 0), horiz ? 0 : Math.PI / 2);
-        for (let k = 0; k < 3; k++) {
-          const off = (k - 1) * 15;
-          const wob = 0.9 + Math.random() * 0.3;
-          pm2.compose(
-            new THREE.Vector3(p.x + (horiz ? 0 : off), 1.3 * wob, p.z + (horiz ? off : 0)),
-            pq2,
-            new THREE.Vector3(1, 1, 1),
-          );
-          plankMesh.setMatrixAt(pi, pm2);
-          pc2.setScalar(0.75 + Math.random() * 0.3);
-          plankMesh.setColorAt(pi, pc2);
-          pi++;
+      let lastPlank = -100;
+      let lastPost = -100;
+      for (const s of samples) {
+        if (s.d - lastPlank >= 40) {
+          lastPlank = s.d;
+          pq2.setFromAxisAngle(up, Math.atan2(-s.tz, s.tx));
+          for (const off of [-16, 0, 16]) {
+            const wob = 0.9 + Math.random() * 0.3;
+            pm2.compose(
+              new THREE.Vector3(s.x - s.tz * off, 1.3 * wob, s.z + s.tx * off),
+              pq2,
+              new THREE.Vector3(1, 1, 1),
+            );
+            plankMesh.setMatrixAt(pi, pm2);
+            pc2.setScalar(0.75 + Math.random() * 0.3);
+            plankMesh.setColorAt(pi, pc2);
+            pi++;
+          }
+        }
+        if (s.d - lastPost >= 48) {
+          lastPost = s.d;
           for (const e of [-1, 1]) {
             pm2.compose(
-              new THREE.Vector3(p.x + (horiz ? e * (CELL / 2 - 7) : off), -1.4, p.z + (horiz ? off : e * (CELL / 2 - 7))),
+              new THREE.Vector3(s.x - s.tz * e * 18, -1.4, s.z + s.tx * e * 18),
               pq2,
               new THREE.Vector3(1, 1, 1),
             );
@@ -719,68 +850,54 @@ export class Renderer3D {
           }
         }
       }
+      plankMesh.count = pi;
+      postMesh.count = qi;
       pushInstanced(plankMesh);
       pushInstanced(postMesh);
     } else {
-      let tileW = CELL + 0.5;
-      let tileH = 2.4;
-      let yBase = -0.2;
-      if (b.road === 'paved') { tileW = CELL + 2; tileH = 2.8; yBase = -0.4; }
-      if (b.road === 'mountain') { tileW = CELL - 5; tileH = 3.6; yBase = -0.6; }
-      const tileGeo = new THREE.BoxGeometry(tileW, tileH, tileW);
-      const pathMesh = new THREE.InstancedMesh(tileGeo, pathMat, pathTiles.length);
-      const pm = new THREE.Matrix4();
-      const pc = new THREE.Color();
-      pathTiles.forEach((p, i) => {
-        pm.makeTranslation(p.x, yBase, p.z);
-        pathMesh.setMatrixAt(i, pm);
-        pc.setScalar(b.road === 'paved' ? 0.92 + Math.random() * 0.14 : 0.8 + Math.random() * 0.32);
-        pathMesh.setColorAt(i, pc);
-      });
-      pushInstanced(pathMesh);
+      const roadHalf = b.road === 'mountain' ? (CELL - 5) / 2 : b.road === 'paved' ? (CELL + 2) / 2 : (CELL + 0.5) / 2;
+      const roadY = b.road === 'mountain' ? 1.15 : 1.0;
+      const skirtBot = b.road === 'mountain' ? -2.0 : -0.9;
+      pushMesh(new THREE.Mesh(flatRibbonGeo(samples, roadHalf, roadY, CELL * 1.05), pathMat));
+      for (const side of [-1, 1]) {
+        const skirtMat = b.road === 'mountain' ? rockMat : pathMat;
+        pushMesh(new THREE.Mesh(wallStripGeo(samples, side * roadHalf, roadY, skirtBot, CELL * 1.05, b.road === 'mountain' ? 1 : 0.55), skirtMat));
+      }
 
       if (b.road === 'paved') {
-        const curbGeo = new THREE.BoxGeometry(3.4, 1.8, CELL + 4);
         const curbMat = new THREE.MeshStandardMaterial({
           map: photoTex('cobble', 2, 2) ?? tiled(stoneTexture(), 2, 2),
           roughness: 0.85,
           color: '#8b8f96',
         });
-        const curbMesh = new THREE.InstancedMesh(curbGeo, curbMat, boundary.length);
-        const pm3 = new THREE.Matrix4();
-        const pq3 = new THREE.Quaternion();
-        boundary.forEach(([p, dx, dz], i) => {
-          const off = CELL / 2 + 2;
-          pq3.setFromAxisAngle(new THREE.Vector3(0, 1, 0), dx !== 0 ? 0 : Math.PI / 2);
-          pm3.compose(
-            new THREE.Vector3(p.x + dx * off, 0.5, p.z + dz * off),
-            pq3,
-            new THREE.Vector3(1, 1, 1),
-          );
-          curbMesh.setMatrixAt(i, pm3);
-        });
-        pushInstanced(curbMesh);
+        for (const side of [-1, 1]) {
+          pushMesh(new THREE.Mesh(wallStripGeo(samples, side * (roadHalf + 1.8), 1.8, 0, CELL * 0.9, 0.9), curbMat));
+          pushMesh(new THREE.Mesh(flatRibbonGeo(samples, 2.2, 1.8, CELL * 0.9, side * (roadHalf + 1.8), 0.95), curbMat));
+        }
       }
 
       if (b.road === 'mountain') {
         const boulderGeo = new THREE.DodecahedronGeometry(4.6);
-        const list = boundary.filter(() => Math.random() < 0.5);
-        const boulderMesh = new THREE.InstancedMesh(boulderGeo, rockMat, Math.max(1, list.length));
+        const boulderMesh = new THREE.InstancedMesh(boulderGeo, rockMat, Math.ceil(samples.length / 5) + 2);
         const pm4 = new THREE.Matrix4();
         const pq4 = new THREE.Quaternion();
-        list.forEach(([p, dx, dz], i) => {
-          const off = CELL / 2 + 3;
-          const along = (Math.random() - 0.5) * (CELL - 12);
-          const px = p.x + dx * off + (dx !== 0 ? 0 : along);
-          const pz = p.z + dz * off + (dx !== 0 ? along : 0);
+        let bi = 0;
+        let lastB = -100;
+        for (const s of samples) {
+          if (s.d - lastB < 30 || Math.random() >= 0.5) continue;
+          lastB = s.d;
+          const side = Math.random() < 0.5 ? -1 : 1;
+          const off = roadHalf + 3 + Math.random() * 5;
           pq4.setFromEuler(new THREE.Euler(Math.random() * 6, Math.random() * 6, Math.random() * 6));
           pm4.compose(
-            new THREE.Vector3(px, 1.1, pz),
+            new THREE.Vector3(s.x - s.tz * side * off, 1.1, s.z + s.tx * side * off),
             pq4,
             new THREE.Vector3(0.6 + Math.random() * 0.9, 0.5 + Math.random() * 0.8, 0.6 + Math.random() * 0.9),
           );
-          boulderMesh.setMatrixAt(i, pm4);
-        });
+          boulderMesh.setMatrixAt(bi, pm4);
+          bi++;
+        }
+        boulderMesh.count = bi;
         boulderMesh.castShadow = true;
         pushInstanced(boulderMesh);
       }

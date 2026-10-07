@@ -27,7 +27,40 @@ function toPx(p: [number, number]): Vec {
   return { x: (p[0] + 0.5) * CELL, y: (p[1] + 0.5) * CELL };
 }
 
-export const GROUND_PATH: Vec[] = LAYOUTS.classic.map(toPx);
+export function smoothPath(pts: Vec[], iters = 3): Vec[] {
+  let cur = pts;
+  for (let it = 0; it < iters; it++) {
+    const out: Vec[] = [cur[0]];
+    for (let i = 0; i < cur.length - 1; i++) {
+      const a = cur[i];
+      const b = cur[i + 1];
+      out.push({ x: a.x * 0.75 + b.x * 0.25, y: a.y * 0.75 + b.y * 0.25 });
+      out.push({ x: a.x * 0.25 + b.x * 0.75, y: a.y * 0.25 + b.y * 0.75 });
+    }
+    out.push(cur[cur.length - 1]);
+    cur = out;
+  }
+  return cur;
+}
+
+function cellsFromPath(pts: Vec[], radius: number): Set<string> {
+  const s = new Set<string>();
+  for (let gy = 0; gy < ROWS; gy++) {
+    for (let gx = 0; gx < COLS; gx++) {
+      const cx = (gx + 0.5) * CELL;
+      const cy = (gy + 0.5) * CELL;
+      let best = Infinity;
+      for (const p of pts) {
+        const d = Math.hypot(p.x - cx, p.y - cy);
+        if (d < best) best = d;
+      }
+      if (best <= radius) s.add(`${gx},${gy}`);
+    }
+  }
+  return s;
+}
+
+export const GROUND_PATH: Vec[] = smoothPath(LAYOUTS.classic.map(toPx));
 export const FLY_PATH: Vec[] = FLY_CELLS.map(toPx);
 
 export function pathLength(pts: Vec[]): number {
@@ -41,26 +74,7 @@ export function pathLength(pts: Vec[]): number {
 export let GROUND_LEN = pathLength(GROUND_PATH);
 export const FLY_LEN = pathLength(FLY_PATH);
 
-function cellsFrom(waypoints: [number, number][]): Set<string> {
-  const s = new Set<string>();
-  for (let i = 1; i < waypoints.length; i++) {
-    const [x0, y0] = waypoints[i - 1];
-    const [x1, y1] = waypoints[i];
-    const dx = Math.sign(x1 - x0);
-    const dy = Math.sign(y1 - y0);
-    let x = x0;
-    let y = y0;
-    s.add(`${x},${y}`);
-    while (x !== x1 || y !== y1) {
-      x += dx;
-      y += dy;
-      s.add(`${x},${y}`);
-    }
-  }
-  return s;
-}
-
-export const PATH_CELLS: Set<string> = cellsFrom(LAYOUTS.classic);
+export const PATH_CELLS: Set<string> = cellsFromPath(GROUND_PATH, 40);
 
 export interface Tuft {
   x: number;
@@ -228,11 +242,11 @@ let currentLayout = 'classic';
 export function setLayout(id: string) {
   const wp = LAYOUTS[id] ?? LAYOUTS.classic;
   currentLayout = id;
-  const pts = wp.map(toPx);
+  const pts = smoothPath(wp.map(toPx));
   GROUND_PATH.splice(0, GROUND_PATH.length, ...pts);
   GROUND_LEN = pathLength(GROUND_PATH);
   PATH_CELLS.clear();
-  for (const c of cellsFrom(wp)) PATH_CELLS.add(c);
+  for (const c of cellsFromPath(pts, 40)) PATH_CELLS.add(c);
   let seed = 0;
   for (let i = 0; i < id.length; i++) seed = (seed * 31 + id.charCodeAt(i)) >>> 0;
   fillScatter(PATH_CELLS, seed + 7);
