@@ -1455,7 +1455,6 @@ export class Renderer3D {
   }
 
   setQuality(high: boolean) {
-    this.gfxHigh = high;
     this.renderer.shadowMap.enabled = high;
     this.bloomPass.enabled = high;
     this.renderer.setPixelRatio(high ? Math.min(window.devicePixelRatio, 2) : 1);
