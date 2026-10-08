@@ -5,7 +5,7 @@ import {
   ABILITIES, CLEAR_BONUS_BASE, CLEAR_BONUS_PER_WAVE, DIFFICULTIES, ELITES, ENEMIES, FINAL_WAVE,
   HIGHSCORE_KEY, INTEREST_CAP, INTEREST_RATE, SELL_RATIO, STACK_BONUS, TOWERS,
 } from './config';
-import { STORIES, WAVES_PER_LEVEL, getStory, levelWaveBase, loadProgress, saveProgress } from './campaign';
+import { STORIES, WAVES_PER_LEVEL, getStory, levelStars, levelWaveBase, loadProgress, recordStars, saveProgress } from './campaign';
 import { buildWave, rewardScale, waveModifier, wavePreview } from './waves';
 import type { SpawnItem } from './waves';
 import { Sfx } from './sfx';
@@ -97,6 +97,8 @@ export class Game {
   endless = false;
   autoStart = true;
   weather: WeatherMode = 'auto';
+  photoMode = false;
+  livesStart = 20;
   difficulty: DifficultyId = 'normal';
   highScore = 0;
   private diffHp = 1;
@@ -152,6 +154,7 @@ export class Game {
     const d = DIFFICULTIES[this.difficulty];
     this.money = d.money;
     this.lives = d.lives;
+    this.livesStart = d.lives;
     this.diffHp = d.hpMul;
     this.state = 'playing';
     this.sfx.setMusic('calm');
@@ -219,6 +222,7 @@ export class Game {
     const d = DIFFICULTIES[this.difficulty];
     this.money = d.money;
     this.lives = d.lives;
+    this.livesStart = d.lives;
     this.diffHp = d.hpMul;
     this.campaignOn = true;
     this.levelBase = levelWaveBase(this.levelIdx);
@@ -273,6 +277,11 @@ export class Game {
 
   cycleWeather() {
     this.weather = this.weather === 'auto' ? 'clear' : this.weather === 'clear' ? 'rain' : 'auto';
+    this.emit();
+  }
+
+  togglePhotoMode() {
+    this.photoMode = !this.photoMode;
     this.emit();
   }
 
@@ -506,12 +515,16 @@ export class Game {
         this.progress[this.storyId] = this.levelIdx;
         saveProgress(this.progress);
       }
+      const lost = Math.max(0, this.livesStart - this.lives);
+      const earned = lost === 0 ? 3 : lost <= 2 ? 2 : 1;
+      recordStars(this.storyId, this.levelIdx, earned);
       this.lastResult = {
         story: story.name,
         level: lv.name,
         outro: lv.outro,
         hasNext: this.levelIdx < story.levels.length - 1,
         clearedAll: this.levelIdx === story.levels.length - 1,
+        stars: earned,
       };
     } else {
       this.lastResult = null;
@@ -1041,7 +1054,7 @@ export class Game {
       const dirX = next.x - e.x;
       const dirY = next.y - e.y;
       if (Math.abs(dirX) + Math.abs(dirY) > 0.01) e.ang = Math.atan2(dirY, dirX);
-      let step = e.disT > 0 ? 0 : e.def.speed * e.mSpeed * (e.enraged ? 1.5 : 1) * (e.slowT > 0 ? e.slowFactor : 1) * dt;
+      let step = e.disT > 0 ? 0 : e.def.speed * e.mSpeed * (e.enraged ? 1.5 : 1) * (e.slowT > 0 ? e.slowFactor : 1) * (!e.def.flying && this.effRain() > 0.5 ? 0.92 : 1) * dt;
       while (step > 0 && e.wp < path.length) {
         const wp = path[e.wp];
         const dx = wp.x - e.x;
@@ -1281,6 +1294,7 @@ export class Game {
       elapsed: this.elapsed,
       weatherRain: this.effRain(),
       weather: this.weather,
+      photo: this.photoMode,
       ghost,
       countdown: this.countdown,
       nextWaveNum: this.wave + 1,
@@ -1331,6 +1345,13 @@ export class Game {
       state: this.state, money: Math.floor(this.money), lives: this.lives,
       wave: this.wave, score: this.score, speed: this.speed, muted: this.muted,
       weather: this.weather,
+      photo: this.photoMode,
+      boss: (() => {
+        for (const en of this.enemies.values()) {
+          if (en.def.kind === 'boss') return { name: en.def.name, hp: Math.max(0, en.hp), maxHp: en.maxHp };
+        }
+        return null;
+      })(),
       endless: this.endless, difficulty: this.difficulty, highScore: this.highScore,
       autoStart: this.autoStart,
       waveActive: this.waveSpawned,
@@ -1371,6 +1392,7 @@ export class Game {
                   name: lv.name,
                   locked: i > (this.progress[this.storyId!] ?? -1) + 1,
                   cleared: i <= (this.progress[this.storyId!] ?? -1),
+                  stars: levelStars(this.storyId!, i),
                 }))
               : [],
             levelName: this.storyId ? getStory(this.storyId).levels[this.levelIdx]?.name ?? '' : '',
@@ -1402,6 +1424,7 @@ export class Game {
     const down = this.downClient;
     this.downClient = null;
     if (!down) return;
+    if (this.photoMode) return;
     if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
     if (this.state !== 'playing') return;
     if (e.button === 2) {
@@ -1475,6 +1498,11 @@ export class Game {
     if (e.repeat) return;
     const k = e.key.toLowerCase();
     if (k === 'escape') {
+      if (this.photoMode) {
+        this.photoMode = false;
+        this.emit();
+        return;
+      }
       const hadSel = this.selKind !== null || this.selTower !== null || this.focusId !== null || this.pendingAirstrike;
       this.selKind = null;
       this.selTower = null;

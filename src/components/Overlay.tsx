@@ -50,7 +50,7 @@ export function Overlay({ ui, game }: { ui: UiSnapshot; game: Game }) {
             >
               <span className="level-num">{i + 1}</span>
               <span className="level-name">{lv.locked ? '???' : lv.name}</span>
-              {lv.cleared && <span className="level-check">✓</span>}
+              {lv.cleared && <span className="level-stars">{'★'.repeat(lv.stars) || '☆'}</span>}
             </button>
           ))}
         </div>
@@ -132,6 +132,7 @@ export function Overlay({ ui, game }: { ui: UiSnapshot; game: Game }) {
       <div className="overlay good">
         <h2>{r.clearedAll ? 'Story Complete' : 'Level Cleared'}</h2>
         <p>{r.story} · {r.level}</p>
+        <p className="victory-stars">{'★'.repeat(r.stars)}{'☆'.repeat(3 - r.stars)}</p>
         <p className="sub">{r.outro}</p>
         <p>Score {ui.score} · +{ui.money} unspent gold banked</p>
         {ui.score >= ui.highScore && ui.score > 0 && <p className="highscore">New high score!</p>}

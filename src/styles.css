@@ -439,6 +439,39 @@ button.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0
 
 .rules li::before { content: '» '; color: var(--accent); }
 
+.boss-toast {
+  position: absolute;
+  top: 54px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(58, 16, 16, 0.92), rgba(34, 10, 10, 0.95));
+  border: 1px solid rgba(239, 68, 68, 0.55);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+}
+.boss-name { color: #fca5a5; font-weight: 800; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; }
+.boss-track { width: 180px; height: 8px; border-radius: 99px; background: rgba(0, 0, 0, 0.55); overflow: hidden; }
+.boss-fill { height: 100%; background: linear-gradient(90deg, #ef4444, #f97316); border-radius: 99px; transition: width 0.25s ease; }
+
+.level-stars { font-size: 11px; color: var(--gold); letter-spacing: 1px; }
+.victory-stars { margin: 0; font-size: 30px; color: var(--gold); text-shadow: 0 0 18px rgba(251, 191, 36, 0.6); letter-spacing: 6px; }
+
+.app.photo .hud,
+.app.photo .panel-col,
+.app.photo .hud-mini,
+.app.photo .hud-toggle,
+.app.photo .sheet-toggles,
+.app.photo .cam-recenter,
+.app.photo .boss-toast {
+  display: none !important;
+}
+
 .cam-recenter { display: none; }
 
 .hud-mini { display: none; }

@@ -34,7 +34,8 @@ export function Hud({ ui, game, open = true }: { ui: UiSnapshot; game: Game; ope
         ))}
       </div>
       <button className="icon" onClick={() => game.togglePause()}>{ui.state === 'paused' ? 'Resume' : 'Pause'}</button>
-      <button className="icon" onClick={() => game.cycleWeather()}>Weather {ui.weather === 'auto' ? 'auto' : ui.weather === 'clear' ? 'clear' : 'storm'}</button>
+      <button className="icon" onClick={() => game.cycleWeather()} title="Storm: ground enemies 8% slower in mud · Clear: full speed">Weather {ui.weather === 'auto' ? 'auto' : ui.weather === 'clear' ? 'clear' : 'storm'}</button>
+      <button className="icon" onClick={() => game.togglePhotoMode()} title="Hide UI for a cinematic view — Esc to exit">Photo</button>
       <button className="icon" onClick={() => game.toggleMute()}>Sound {ui.muted ? 'off' : 'on'}</button>
     </div>
   );

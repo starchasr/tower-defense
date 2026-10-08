@@ -38,7 +38,7 @@ export default function App() {
   }, []);
 
   return (
-    <div className="app">
+    <div className={`app${ui && ui.state === 'playing' && ui.photo ? ' photo' : ''}`}>
       {game && ui && <Hud ui={ui} game={game} open={hudOpen} />}
       <div
         className="canvas-stack"
@@ -57,6 +57,12 @@ export default function App() {
             <span className="mini-lives">♥ {ui.lives}</span>
             <span className="mini-gold">${ui.money}</span>
           </div>
+          {ui.boss && (
+            <div className="boss-toast">
+              <span className="boss-name">{ui.boss.name}</span>
+              <div className="boss-track"><div className="boss-fill" style={{ width: `${Math.max(0, Math.min(100, (ui.boss.hp / ui.boss.maxHp) * 100))}%` }} /></div>
+            </div>
+          )}
           <button className="cam-recenter" onClick={() => game.recenterCamera()} title="Re-center camera">⌖</button>
           <button className={`hud-toggle${hudOpen ? ' open' : ''}`} onClick={() => setHudOpen(v => !v)}>
             {hudOpen ? 'Hide stats ▴' : 'Stats ▾'}

@@ -17,6 +17,7 @@ export interface CampaignLevelInfo {
   name: string;
   locked: boolean;
   cleared: boolean;
+  stars: number;
 }
 export type DifficultyId = 'easy' | 'normal' | 'hard';
 export type AbilityId = 'airstrike' | 'cryo' | 'overdrive' | 'repair' | 'goldrush';
@@ -215,7 +216,9 @@ export interface UiSnapshot {
     intro: string;
     levelNum: number;
   };
-  campaignResult: null | { story: string; level: string; outro: string; hasNext: boolean; clearedAll: boolean };
+  campaignResult: null | { story: string; level: string; outro: string; hasNext: boolean; clearedAll: boolean; stars: number };
+  boss: { name: string; hp: number; maxHp: number } | null;
+  photo: boolean;
 }
 
 export type RenderEffect =
@@ -256,6 +259,7 @@ export interface RenderState {
   elapsed: number;
   weatherRain: number;
   weather: WeatherMode;
+  photo: boolean;
   ghost: GhostInfo | null;
   countdown: number;
   nextWaveNum: number;

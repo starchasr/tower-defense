@@ -80,6 +80,7 @@ export function getStory(id: string): Story {
 }
 
 const KEY = 'nd_campaign_v1';
+const SKEY = 'nd_campaign_stars_v1';
 
 export function loadProgress(): Record<string, number> {
   try {
@@ -97,4 +98,35 @@ export function saveProgress(p: Record<string, number>) {
   } catch {
     // ignore
   }
+}
+
+let starTable: Record<string, number[]> = loadStars();
+
+function loadStars(): Record<string, number[]> {
+  try {
+    const raw = localStorage.getItem(SKEY);
+    if (raw) return JSON.parse(raw) as Record<string, number[]>;
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
+function saveStars(s: Record<string, number[]>) {
+  try {
+    localStorage.setItem(SKEY, JSON.stringify(s));
+  } catch {
+    // ignore
+  }
+}
+
+export function levelStars(storyId: string, idx: number): number {
+  return starTable[storyId]?.[idx] ?? 0;
+}
+
+export function recordStars(storyId: string, idx: number, earned: number) {
+  const arr = starTable[storyId] ?? [];
+  arr[idx] = Math.max(arr[idx] ?? 0, earned);
+  starTable[storyId] = arr;
+  saveStars(starTable);
 }

@@ -478,6 +478,9 @@ export class Renderer3D {
   private coreLight!: THREE.PointLight;
   private keepers: { group: THREE.Group; phase: number }[] = [];
   private mists: { mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial; speed: number; phase: number }[] = [];
+  private fireflies!: THREE.Points;
+  private fireMat!: THREE.PointsMaterial;
+  private fireBase!: Float32Array;
   private barT = 0;
   private vigCv: HTMLCanvasElement | null = null;
 
@@ -522,6 +525,7 @@ export class Renderer3D {
     this.buildMarkers();
     this.buildClouds();
     this.buildMist();
+    this.buildFireflies();
     this.buildRain();
     this.buildCelestials();
     this.buildRipples();
@@ -1182,6 +1186,42 @@ export class Renderer3D {
     mkForest(this.leafGeo, this.outerLeafMat, 60);
   }
 
+  private buildFireflies() {
+    const N = 64;
+    const base = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) {
+      base[i * 3] = Math.random() * (W + 400) - 200;
+      base[i * 3 + 1] = 4 + Math.random() * 12;
+      base[i * 3 + 2] = Math.random() * (H + 200) - 100;
+    }
+    this.fireBase = base;
+    const cv = document.createElement('canvas');
+    cv.width = 32;
+    cv.height = 32;
+    const ctx = cv.getContext('2d')!;
+    const g = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.35, 'rgba(226,255,150,0.85)');
+    g.addColorStop(1, 'rgba(190,240,80,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 32, 32);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(base.slice(), 3));
+    this.fireMat = new THREE.PointsMaterial({
+      color: '#e8ffa0',
+      size: 3.2,
+      map: new THREE.CanvasTexture(cv),
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      sizeAttenuation: true,
+    });
+    this.fireflies = new THREE.Points(geo, this.fireMat);
+    this.fireflies.frustumCulled = false;
+    this.scene.add(this.fireflies);
+  }
+
   private buildMist() {
     const blobTex = cloudShadowTexture();
     for (let i = 0; i < 12; i++) {
@@ -1702,8 +1742,21 @@ export class Renderer3D {
       if (m.mesh.position.x > W + 700) m.mesh.position.x = -700;
       m.mat.opacity = mistAmt * (0.05 + 0.03 * Math.sin(s.elapsed * 0.35 + m.phase));
     }
-    const barActive = this.cinemaMode !== 'off' || this.introT > 0;
+    const barActive = this.cinemaMode !== 'off' || this.introT > 0 || s.photo;
     this.barT += ((barActive ? 1 : 0) - this.barT) * Math.min(1, rdt * 4);
+    if (s.photo) this.thetaT += rdt * 0.025;
+
+    this.fireMat.opacity = ph.night * 0.9;
+    if (ph.night > 0.02) {
+      const fp = (this.fireflies.geometry.getAttribute('position') as THREE.BufferAttribute).array as Float32Array;
+      for (let i = 0; i < this.fireBase.length / 3; i++) {
+        const t = s.elapsed * 0.7 + i * 1.7;
+        fp[i * 3] = this.fireBase[i * 3] + Math.sin(t * 0.9 + i) * 9;
+        fp[i * 3 + 1] = this.fireBase[i * 3 + 1] + Math.sin(t * 1.3 + i * 2.1) * 2.5;
+        fp[i * 3 + 2] = this.fireBase[i * 3 + 2] + Math.cos(t * 0.8 + i * 0.7) * 9;
+      }
+      (this.fireflies.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
+    }
     for (const pf of this.poolFills) pf.emissiveIntensity = 0.55 + 0.28 * Math.sin(s.elapsed * 2.4);
     let radius = this.radius;
     let theta = this.theta;
