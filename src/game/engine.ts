@@ -1515,6 +1515,7 @@ export class Game {
       runStats: { ...this.runStats },
       showRanges: this.showRanges,
       gfxHigh: this.gfxHigh,
+      volume: this.volume,
       endless: this.endless, difficulty: this.difficulty, highScore: this.highScore,
       autoStart: this.autoStart,
       waveActive: this.waveSpawned,
