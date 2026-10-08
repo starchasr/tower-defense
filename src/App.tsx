@@ -7,6 +7,7 @@ import { Shop } from './components/Shop';
 import { TowerPanel } from './components/TowerPanel';
 import { WaveBox } from './components/WaveBox';
 import { Overlay } from './components/Overlay';
+import { MiniMap } from './components/MiniMap';
 
 export default function App() {
   const glRef = useRef<HTMLCanvasElement | null>(null);
@@ -57,6 +58,7 @@ export default function App() {
             <span className="mini-lives">♥ {ui.lives}</span>
             <span className="mini-gold">${ui.money}</span>
           </div>
+          {ui.state === 'playing' && !ui.photo && <MiniMap ui={ui} game={game} />}
           {ui.boss && (
             <div className="boss-toast">
               <span className="boss-name">{ui.boss.name}</span>

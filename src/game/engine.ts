@@ -99,6 +99,7 @@ export class Game {
   weather: WeatherMode = 'auto';
   photoMode = false;
   livesStart = 20;
+  runStats = { kills: 0, goldEarned: 0, leaks: 0, built: 0, dmg: 0 };
   difficulty: DifficultyId = 'normal';
   highScore = 0;
   private diffHp = 1;
@@ -285,6 +286,14 @@ export class Game {
     this.emit();
   }
 
+  centerCameraOn(x: number, y: number) {
+    this.renderer.centerOn(x, y);
+  }
+
+  takeScreenshot() {
+    this.renderer.requestShot();
+  }
+
   private effRain(): number {
     if (this.weather === 'clear') return 0;
     if (this.weather === 'rain') return 1;
@@ -436,6 +445,7 @@ export class Game {
     this.projectiles = [];
     this.queue = [];
     this.effects = [];
+    this.runStats = { kills: 0, goldEarned: 0, leaks: 0, built: 0, dmg: 0 };
     this.wave = 0;
     this.score = 0;
     this.speed = 1;
@@ -704,7 +714,10 @@ export class Game {
     } else {
       e.hp -= pierce ? incoming : Math.max(1, incoming - armor);
     }
-    if (tower) tower.damage += incoming;
+    if (tower) {
+      tower.damage += incoming;
+      this.runStats.dmg += incoming;
+    }
     if (e.hp <= 0) this.killEnemy(e, tower);
   }
 
@@ -716,9 +729,15 @@ export class Game {
     const comboMul = 1 + Math.min(1, this.combo * 0.02);
     this.money += e.reward;
     this.score += Math.round(e.reward * comboMul);
+    this.runStats.kills++;
+    this.runStats.goldEarned += e.reward;
+    if (!e.def.flying) {
+      this.pushEffect({ type: 'splat', x: e.x, y: e.y, size: e.def.size * 1.2, color: e.def.color, t: 0, life: 16 });
+    }
     if (this.goldRushT > 0) {
       const grBonus = Math.ceil(e.reward * 0.5);
       this.money += grBonus;
+      this.runStats.goldEarned += grBonus;
       this.floatText(e.x, e.y - 12, `+$${grBonus}`, '#fde047');
     }
     if (tower) tower.kills++;
@@ -930,6 +949,15 @@ export class Game {
       this.boltT = 0.25;
       this.shake = Math.max(this.shake, 2.5);
       this.sfx.play('thunder');
+      const groundList = [...this.enemies.values()].filter(en => !en.def.flying);
+      if (groundList.length) {
+        const victim = groundList[Math.floor(Math.random() * groundList.length)];
+        const zap = Math.max(12, victim.maxHp * 0.06);
+        victim.hp -= zap;
+        this.pushEffect({ type: 'ring', x: victim.x, y: victim.y, r: 30, t: 0, life: 0.5, color: '#cfe8ff' });
+        this.floatText(victim.x, victim.y - 10, `-${Math.round(zap)}`, '#cfe8ff');
+        if (victim.hp <= 0) this.killEnemy(victim);
+      }
     }
     this.comboT = Math.max(0, this.comboT - dt);
     if (this.comboT <= 0) this.combo = 0;
@@ -1090,6 +1118,7 @@ export class Game {
     for (const e of leaks) {
       this.enemies.delete(e.id);
       this.lives -= e.def.leak;
+      this.runStats.leaks += e.def.leak;
       this.shake = 7;
       this.dmgFlash = 0.7;
       this.leakT = 1.3;
@@ -1352,6 +1381,9 @@ export class Game {
         }
         return null;
       })(),
+      towersMini: this.towers.map(t => ({ x: t.x, y: t.y, kind: t.kind })),
+      enemiesMini: [...this.enemies.values()].map(en => ({ x: en.x, y: en.y, boss: en.def.kind === 'boss' })),
+      runStats: { ...this.runStats },
       endless: this.endless, difficulty: this.difficulty, highScore: this.highScore,
       autoStart: this.autoStart,
       waveActive: this.waveSpawned,
@@ -1465,6 +1497,7 @@ export class Game {
         t.spent = cost;
         t.placedAt = this.elapsed;
         this.towers.push(t);
+        this.runStats.built++;
         this.burst(t.x, t.y, def.color, 10, 60);
         this.sfx.play('place');
       }

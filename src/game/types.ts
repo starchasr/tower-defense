@@ -219,6 +219,9 @@ export interface UiSnapshot {
   campaignResult: null | { story: string; level: string; outro: string; hasNext: boolean; clearedAll: boolean; stars: number };
   boss: { name: string; hp: number; maxHp: number } | null;
   photo: boolean;
+  towersMini: { x: number; y: number; kind: TowerKind }[];
+  enemiesMini: { x: number; y: number; boss: boolean }[];
+  runStats: { kills: number; goldEarned: number; leaks: number; built: number; dmg: number };
 }
 
 export type RenderEffect =
@@ -231,7 +234,8 @@ export type RenderEffect =
   | { type: 'corpse'; x: number; y: number; y0: number; size: number; color: string; shape: 'sphere' | 'cone' | 'box' | 'octa' | 'cross'; ang: number; t: number; life: number }
   | { type: 'soul'; x: number; y: number; color: string; t: number; life: number }
   | { type: 'spark'; x: number; y: number; h: number; vx: number; vy: number; vz: number; color: string; t: number; life: number }
-  | { type: 'part'; x: number; y: number; vx: number; vy: number; size: number; color: string; t: number; life: number; grav?: number };
+  | { type: 'part'; x: number; y: number; vx: number; vy: number; size: number; color: string; t: number; life: number; grav?: number }
+  | { type: 'splat'; x: number; y: number; size: number; color: string; t: number; life: number };
 
 export interface GhostInfo {
   gx: number;

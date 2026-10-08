@@ -1449,6 +1449,10 @@ export class Renderer3D {
     }
   }
 
+  centerOn(x: number, z: number) {
+    this.targetT.set(x, 0, z);
+  }
+
   recenter() {
     this.targetT.set(W / 2, 0, H / 2);
     this.radiusT = 1250;
@@ -1785,7 +1789,32 @@ export class Renderer3D {
     this.camera.lookAt(this.target.x + shakeX * 0.4, 0, this.target.z + shakeZ * 0.4);
 
     this.composer.render();
+    if (this.shotWanted) {
+      this.shotWanted = false;
+      this.takeShot();
+    }
     this.drawOverlay(s);
+  }
+
+  private shotWanted = false;
+
+  requestShot() {
+    this.shotWanted = true;
+  }
+
+  private takeShot() {
+    const cv = document.createElement('canvas');
+    cv.width = this.w;
+    cv.height = this.h;
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(this.glCanvas, 0, 0, this.w, this.h);
+    const fx = this.glCanvas.parentElement?.querySelector('.fx-canvas') as HTMLCanvasElement | null;
+    if (fx) ctx.drawImage(fx, 0, 0, this.w, this.h);
+    const a = document.createElement('a');
+    a.download = `neon-defense-${Date.now()}.png`;
+    a.href = cv.toDataURL('image/png');
+    a.click();
   }
 
   private resizeCheck() {
@@ -2583,6 +2612,22 @@ export class Renderer3D {
           mat.opacity = 1 - k;
           obj.rotation.z = k * 1.1;
           obj.scale.setScalar(Math.max(0.05, 1 - 0.35 * k));
+        } };
+      }
+      case 'splat': {
+        const mat = new THREE.MeshBasicMaterial({
+          color: new THREE.Color(fx.color).multiplyScalar(0.32),
+          transparent: true,
+          opacity: 0.62,
+          depthWrite: false,
+        });
+        const obj = new THREE.Mesh(new THREE.CircleGeometry(1, 14), mat);
+        obj.rotation.x = -Math.PI / 2;
+        obj.position.set(fx.x, 1.06, fx.y);
+        obj.scale.setScalar(fx.size);
+        return { obj, update: k => {
+          mat.opacity = 0.62 * (k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3);
+          obj.scale.setScalar(fx.size * (1 + k * 0.15));
         } };
       }
       case 'soul': {

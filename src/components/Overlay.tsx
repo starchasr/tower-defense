@@ -3,6 +3,20 @@ import type { UiSnapshot } from '../game/types';
 import { DIFFICULTIES, FINAL_WAVE } from '../game/config';
 import type { DifficultyId } from '../game/types';
 
+function RunStats({ ui }: { ui: UiSnapshot }) {
+  const s = ui.runStats;
+  return (
+    <div className="run-stats">
+      <span>Kills <b>{s.kills}</b></span>
+      <span>Damage <b>{Math.round(s.dmg).toLocaleString()}</b></span>
+      <span>Gold earned <b>{s.goldEarned.toLocaleString()}</b></span>
+      <span>Towers built <b>{s.built}</b></span>
+      <span>Leaks <b>{s.leaks}</b></span>
+      <span>Score <b>{ui.score.toLocaleString()}</b></span>
+    </div>
+  );
+}
+
 export function Overlay({ ui, game }: { ui: UiSnapshot; game: Game }) {
   if (ui.state === 'playing') return null;
 
@@ -117,6 +131,7 @@ export function Overlay({ ui, game }: { ui: UiSnapshot; game: Game }) {
         <h2>Base Destroyed</h2>
         <p>You survived {Math.max(0, ui.wave - 1)} waves · Score {ui.score}</p>
         {ui.score >= ui.highScore && ui.score > 0 && <p className="highscore">New high score!</p>}
+        <RunStats ui={ui} />
         <div className="row gap center">
           {ui.campaignOn && <button className="primary big" onClick={() => game.retryLevel()}>Retry Level</button>}
           {!ui.campaignOn && <button className="primary big" onClick={() => game.start()}>Try Again</button>}
@@ -134,6 +149,7 @@ export function Overlay({ ui, game }: { ui: UiSnapshot; game: Game }) {
         <p>{r.story} · {r.level}</p>
         <p className="victory-stars">{'★'.repeat(r.stars)}{'☆'.repeat(3 - r.stars)}</p>
         <p className="sub">{r.outro}</p>
+        <RunStats ui={ui} />
         <p>Score {ui.score} · +{ui.money} unspent gold banked</p>
         {ui.score >= ui.highScore && ui.score > 0 && <p className="highscore">New high score!</p>}
         <div className="row gap center">
@@ -145,10 +161,11 @@ export function Overlay({ ui, game }: { ui: UiSnapshot; game: Game }) {
   }
 
   return (
-    <div className="overlay good">
-      <h2>Victory</h2>
-      <p>All {FINAL_WAVE} waves cleared · Score {ui.score}</p>
-      <p className="sub">+{ui.money} unspent gold banked as score</p>
+      <div className="overlay good">
+        <h2>Victory</h2>
+        <p>All {FINAL_WAVE} waves cleared · Score {ui.score}</p>
+        <p className="sub">+{ui.money} unspent gold banked as score</p>
+        <RunStats ui={ui} />
       {ui.score >= ui.highScore && ui.score > 0 && <p className="highscore">New high score!</p>}
       <div className="row gap center">
         <button className="primary big" onClick={() => game.continueEndless()}>Endless Mode</button>
