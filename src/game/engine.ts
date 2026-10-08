@@ -6,6 +6,7 @@ import {
   HIGHSCORE_KEY, INTEREST_CAP, INTEREST_RATE, SELL_RATIO, STACK_BONUS, TOWERS,
 } from './config';
 import { STORIES, WAVES_PER_LEVEL, getStory, levelStars, levelWaveBase, loadProgress, recordStars, saveProgress } from './campaign';
+import { achName, loadAch, saveAch } from './achievements';
 import { buildWave, rewardScale, waveModifier, wavePreview } from './waves';
 import type { SpawnItem } from './waves';
 import { Sfx } from './sfx';
@@ -100,6 +101,18 @@ export class Game {
   photoMode = false;
   livesStart = 20;
   runStats = { kills: 0, goldEarned: 0, leaks: 0, built: 0, dmg: 0 };
+  showRanges = false;
+  gfxHigh = true;
+  private ach: Record<string, number> = loadAch();
+  private panKeys = new Set<string>();
+
+  private unlock(id: string) {
+    if (this.ach[id]) return;
+    this.ach[id] = 1;
+    saveAch(this.ach);
+    const a = achName(id);
+    if (a) this.pushEvent(`★ Achievement — ${a.name}: ${a.desc}`, '#fde047');
+  }
   difficulty: DifficultyId = 'normal';
   highScore = 0;
   private diffHp = 1;
@@ -114,12 +127,14 @@ export class Game {
     } catch {
       this.highScore = 0;
     }
+    this.gfxHigh = localStorage.getItem('nd_gfx') !== '0';
+    this.renderer.setQuality(this.gfxHigh);
+    document.addEventListener('visibilitychange', this.onVisibility);
     glCanvas.addEventListener('pointermove', this.onPointerMove);
     glCanvas.addEventListener('pointerdown', this.onPointerDown);
     glCanvas.addEventListener('pointerup', this.onPointerUp);
-    glCanvas.addEventListener('pointerleave', this.onPointerLeave);
-    glCanvas.addEventListener('contextmenu', this.onContextMenu);
     window.addEventListener('keydown', this.onKey);
+    window.addEventListener('keyup', this.onKeyUp);
     this.raf = requestAnimationFrame(this.loop);
   }
 
@@ -130,8 +145,14 @@ export class Game {
     this.glCanvas.removeEventListener('pointerup', this.onPointerUp);
     this.glCanvas.removeEventListener('pointerleave', this.onPointerLeave);
     this.glCanvas.removeEventListener('contextmenu', this.onContextMenu);
+    document.removeEventListener('visibilitychange', this.onVisibility);
     window.removeEventListener('keydown', this.onKey);
+    window.removeEventListener('keyup', this.onKeyUp);
   }
+
+  private onVisibility = () => {
+    if (document.hidden && this.state === 'playing' && !this.photoMode) this.togglePause();
+  };
 
   emit() {
     this.onUi?.(this.getSnapshot());
@@ -278,6 +299,7 @@ export class Game {
 
   cycleWeather() {
     this.weather = this.weather === 'auto' ? 'clear' : this.weather === 'clear' ? 'rain' : 'auto';
+    if (this.weather === 'rain') this.unlock('storm');
     this.emit();
   }
 
@@ -293,6 +315,21 @@ export class Game {
   takeScreenshot() {
     this.renderer.requestShot();
   }
+
+  toggleRanges() {
+    this.showRanges = !this.showRanges;
+    this.emit();
+  }
+
+  setGfx(high: boolean) {
+    this.gfxHigh = high;
+    this.renderer.setQuality(high);
+    this.emit();
+  }
+
+  private onKeyUp = (e: KeyboardEvent) => {
+    this.panKeys.delete(e.key);
+  };
 
   private effRain(): number {
     if (this.weather === 'clear') return 0;
@@ -486,6 +523,8 @@ export class Game {
     const mod = waveModifier(this.wave);
     this.bannerT = 2.6;
     this.bannerLabel = mod ? mod.name : '';
+    if (this.endless && this.wave >= 40) this.unlock('endless10');
+    if (this.money >= 1500) this.unlock('rich');
     if (mod) this.floatText(W / 2, 130, `Wave ${this.wave}: ${mod.name} — ${mod.desc}`, mod.tint);
     this.pushEffect({ type: 'ring', x: GROUND_PATH[0].x, y: GROUND_PATH[0].y, r: 30, t: 0, life: 0.6, color: '#67e8f9' });
     this.pushEffect({ type: 'ring', x: GROUND_PATH[0].x, y: GROUND_PATH[0].y, r: 64, t: 0, life: 0.8, color: '#a5f3fc' });
@@ -528,6 +567,8 @@ export class Game {
       const lost = Math.max(0, this.livesStart - this.lives);
       const earned = lost === 0 ? 3 : lost <= 2 ? 2 : 1;
       recordStars(this.storyId, this.levelIdx, earned);
+      this.unlock('campaign1');
+      if (earned === 3) this.unlock('allstars');
       this.lastResult = {
         story: story.name,
         level: lv.name,
@@ -558,6 +599,8 @@ export class Game {
       this.shake = 11;
       this.floatText(W / 2, 150, 'BOSS INCOMING', '#f87171');
       this.pushEvent('A BOSS approaches the core!', '#f87171');
+      this.bannerT = 2.2;
+      this.bannerLabel = 'BOSS INCOMING';
       this.sfx.play('horn');
     }
     this.spawnEnemy(it.kind, it.hpMul, GROUND_PATH[0], 1, 0, 1, elite);
@@ -731,6 +774,10 @@ export class Game {
     this.score += Math.round(e.reward * comboMul);
     this.runStats.kills++;
     this.runStats.goldEarned += e.reward;
+    this.unlock('firstblood');
+    if (this.runStats.kills >= 100) this.unlock('century');
+    if (this.combo >= 15) this.unlock('combo15');
+    if (tower && Math.floor(tower.kills / 15) >= 1) this.unlock('veteran');
     if (!e.def.flying) {
       this.pushEffect({ type: 'splat', x: e.x, y: e.y, size: e.def.size * 1.2, color: e.def.color, t: 0, life: 16 });
     }
@@ -760,6 +807,7 @@ export class Game {
       this.shake = 12;
       this.slowMoT = 0.6;
       this.pushEvent('BOSS DOWN!', '#4ade80');
+      this.unlock('bossdown');
       this.fireworksShow(e.x, e.y, 5, 240);
     }
     if (e.def.spawnOnDeath) {
@@ -940,6 +988,7 @@ export class Game {
     this.overdriveT = Math.max(0, this.overdriveT - dt);
     this.sfx.ambience(dayPhase(this.elapsed).daylight, dt);
     const rain = this.effRain();
+    if (this.money >= 1500) this.unlock('rich');
     if (Math.abs(rain - this.lastRain) > 0.01) {
       this.lastRain = rain;
       this.sfx.setRain(rain);
@@ -1322,6 +1371,7 @@ export class Game {
       lowLives: this.lives > 0 && this.lives <= 5,
       elapsed: this.elapsed,
       weatherRain: this.effRain(),
+      showRanges: this.showRanges,
       weather: this.weather,
       photo: this.photoMode,
       ghost,
@@ -1384,6 +1434,8 @@ export class Game {
       towersMini: this.towers.map(t => ({ x: t.x, y: t.y, kind: t.kind })),
       enemiesMini: [...this.enemies.values()].map(en => ({ x: en.x, y: en.y, boss: en.def.kind === 'boss' })),
       runStats: { ...this.runStats },
+      showRanges: this.showRanges,
+      gfxHigh: this.gfxHigh,
       endless: this.endless, difficulty: this.difficulty, highScore: this.highScore,
       autoStart: this.autoStart,
       waveActive: this.waveSpawned,
@@ -1528,6 +1580,11 @@ export class Game {
   };
 
   private onKey = (e: KeyboardEvent) => {
+    if (e.key.startsWith('Arrow')) {
+      this.panKeys.add(e.key);
+      e.preventDefault();
+      return;
+    }
     if (e.repeat) return;
     const k = e.key.toLowerCase();
     if (k === 'escape') {
@@ -1588,6 +1645,16 @@ export class Game {
     this.last = ts;
     this.slowMoT = Math.max(0, this.slowMoT - dt);
     const timeScale = this.slowMoT > 0 ? 0.35 : 1;
+    if (this.panKeys.size && (this.state === 'playing' || this.state === 'paused')) {
+      const ps = 640 * dt;
+      let dx = 0;
+      let dy = 0;
+      if (this.panKeys.has('ArrowUp')) dy -= ps;
+      if (this.panKeys.has('ArrowDown')) dy += ps;
+      if (this.panKeys.has('ArrowLeft')) dx -= ps;
+      if (this.panKeys.has('ArrowRight')) dx += ps;
+      if (dx || dy) this.renderer.nudgePan(dx, dy);
+    }
     if (this.state === 'playing') {
       let rem = dt * this.speed * timeScale;
       while (rem > 0) {

@@ -33,6 +33,8 @@ export function Hud({ ui, game, open = true }: { ui: UiSnapshot; game: Game; ope
           <button key={s} className={ui.speed === s ? 'on' : ''} onClick={() => game.setSpeed(s)}>{s}x</button>
         ))}
       </div>
+      <button className="icon" onClick={() => game.toggleRanges()} title="Show every tower's range">Ranges {ui.showRanges ? 'on' : 'off'}</button>
+      <button className="icon" onClick={() => game.setGfx(!ui.gfxHigh)} title="Low disables shadows & bloom (better battery/perf)">GFX {ui.gfxHigh ? 'hi' : 'lo'}</button>
       <button className="icon" onClick={() => game.togglePause()}>{ui.state === 'paused' ? 'Resume' : 'Pause'}</button>
       <button className="icon" onClick={() => game.cycleWeather()} title="Storm: ground enemies 8% slower in mud · Clear: full speed">Weather {ui.weather === 'auto' ? 'auto' : ui.weather === 'clear' ? 'clear' : 'storm'}</button>
       <button className="icon" onClick={() => game.togglePhotoMode()} title="Hide UI for a cinematic view — Esc to exit">Photo</button>

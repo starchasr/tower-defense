@@ -28,6 +28,7 @@ interface TowerView {
   levelCubes: THREE.Mesh[];
   gems: THREE.Group;
   aura: THREE.Mesh | null;
+  rangeRing: THREE.Mesh;
   born: number;
 }
 
@@ -1449,6 +1450,23 @@ export class Renderer3D {
     }
   }
 
+  nudgePan(dx: number, dy: number) {
+    this.panBy(dx, dy);
+  }
+
+  setQuality(high: boolean) {
+    this.gfxHigh = high;
+    this.renderer.shadowMap.enabled = high;
+    this.bloomPass.enabled = high;
+    this.renderer.setPixelRatio(high ? Math.min(window.devicePixelRatio, 2) : 1);
+    this.w = -1;
+    try {
+      localStorage.setItem('nd_gfx', high ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  }
+
   centerOn(x: number, z: number) {
     this.targetT.set(x, 0, z);
   }
@@ -2007,7 +2025,16 @@ export class Renderer3D {
     }
 
     this.scene.add(group);
-    return { group, yaw, barrel, barrelBaseX, flash, spinner: spinnerObj, ringMat, levelCubes, gems, aura, born: 0 };
+    const rangeRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.94, 1, 56),
+      new THREE.MeshBasicMaterial({ color: def.color, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false }),
+    );
+    rangeRing.rotation.x = -Math.PI / 2;
+    rangeRing.position.y = 1.3;
+    rangeRing.visible = false;
+    group.add(rangeRing);
+
+    return { group, yaw, barrel, barrelBaseX, flash, spinner: spinnerObj, ringMat, levelCubes, gems, aura, rangeRing, born: 0 };
   }
 
   private syncTowers(s: RenderState) {
@@ -2040,6 +2067,12 @@ export class Renderer3D {
         view.flash.scale.setScalar(fsc);
       }
       view.ringMat.emissiveIntensity = 0.3 + t.level * 0.45;
+      const range = TOWERS[t.kind].levels[t.level].range;
+      view.rangeRing.visible = s.showRanges && range > 0;
+      if (view.rangeRing.visible) {
+        view.rangeRing.scale.set(range, range, 1);
+        (view.rangeRing.material as THREE.MeshBasicMaterial).color.set(TOWERS[t.kind].color);
+      }
       view.levelCubes.forEach((c, i) => {
         (c.material as THREE.MeshStandardMaterial).color.set(i <= t.level ? TOWERS[t.kind].color : '#334155');
       });

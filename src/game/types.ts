@@ -222,6 +222,8 @@ export interface UiSnapshot {
   towersMini: { x: number; y: number; kind: TowerKind }[];
   enemiesMini: { x: number; y: number; boss: boolean }[];
   runStats: { kills: number; goldEarned: number; leaks: number; built: number; dmg: number };
+  showRanges: boolean;
+  gfxHigh: boolean;
 }
 
 export type RenderEffect =
@@ -264,6 +266,7 @@ export interface RenderState {
   weatherRain: number;
   weather: WeatherMode;
   photo: boolean;
+  showRanges: boolean;
   ghost: GhostInfo | null;
   countdown: number;
   nextWaveNum: number;
