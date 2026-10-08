@@ -63,6 +63,9 @@ function procedural(n: number): RawEntry[] {
   if (n % 4 === 0) out.push(['shield', 8 + t, 1.3, 3]);
   if (n % 5 === 0) out.push(['boss', 1 + Math.floor(t / 5), 6, 4]);
   if (n % 4 === 1) out.push(['colossus', 1 + Math.floor(t / 6), 9, 2]);
+  if (n % 3 === 1) out.push(['shade', 5 + t, 1.1, 2]);
+  if (n % 7 === 3) out.push(['carrier', 2 + Math.floor(t / 4), 5, 3]);
+  if (n % 2 === 0) out.push(['ravager', 3 + Math.floor(t / 3), 2.2, 4]);
   return out;
 }
 

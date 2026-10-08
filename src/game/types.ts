@@ -1,7 +1,7 @@
 export type Vec = { x: number; y: number };
 
-export type TowerKind = 'gun' | 'frost' | 'cannon' | 'sniper' | 'tesla' | 'flame' | 'missile' | 'amp' | 'bank';
-export type EnemyKind = 'grunt' | 'runner' | 'brute' | 'flyer' | 'healer' | 'boss' | 'splitter' | 'shield' | 'phantom' | 'wrecker' | 'colossus';
+export type TowerKind = 'gun' | 'frost' | 'cannon' | 'sniper' | 'tesla' | 'flame' | 'missile' | 'amp' | 'bank' | 'mortar' | 'venom' | 'prism';
+export type EnemyKind = 'grunt' | 'runner' | 'brute' | 'flyer' | 'healer' | 'boss' | 'splitter' | 'shield' | 'phantom' | 'wrecker' | 'colossus' | 'shade' | 'carrier' | 'ravager';
 export type TargetMode = 'first' | 'last' | 'strong' | 'close';
 export type GameState = 'menu' | 'playing' | 'paused' | 'gameover' | 'victory' | 'stories' | 'levels' | 'briefing';
 
@@ -36,6 +36,8 @@ export interface TowerLevel {
   burnTime?: number;
   aura?: { range: number; dmgPct: number };
   income?: number;
+  poison?: number;
+  poisonTime?: number;
 }
 
 export interface TowerDef {
@@ -59,6 +61,8 @@ export interface Tower {
   cd: number;
   angle: number;
   targeting: TargetMode;
+  beamTargetId: number;
+  beamHeat: number;
   spent: number;
   kills: number;
   damage: number;
@@ -90,6 +94,9 @@ export interface EnemyDef {
   slam?: { radius: number; stun: number; every: number };
   disable?: { radius: number; stun: number; channel: number; every: number };
   slowImmune?: boolean;
+  blinkEvery?: number;
+  blinkDist?: number;
+  berserk?: boolean;
 }
 
 export interface Enemy {
@@ -115,6 +122,10 @@ export interface Enemy {
   burnDps: number;
   burnT: number;
   burnTowerId: number;
+  poisonDps: number;
+  poisonT: number;
+  poisonTowerId: number;
+  blinkT: number;
   enraged: boolean;
   mSpeed: number;
   mArmor: number;
@@ -146,6 +157,8 @@ export interface Projectile {
   color: string;
   tower: Tower;
   trailT: number;
+  sx?: number;
+  sy?: number;
 }
 
 export interface SelTowerInfo {

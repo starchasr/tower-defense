@@ -4,18 +4,54 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { CELL, COLS, DECOR, GROUND_PATH, H, PATH_CELLS, POOL_CLUSTERS, ROWS, TREE_CELLS, TERRAIN, TUFTS, W, biome, getLayout } from './map';
+import { BLOCKED_CELLS, CELL, COLS, DECOR, GROUND_PATH, H, PATH_CELLS, POOL_CLUSTERS, ROWS, TREE_CELLS, TERRAIN, TUFTS, W, biome, getLayout } from './map';
 import { TOWERS } from './config';
 import { dayPhase } from './daycycle';
 import {
-  cloudShadowTexture, grassBumpTex, grassTexture, metalBumpTex, metalTexture, nightSkyTexture, pathBumpTex, pathTexture,
-  photoTex, scorchTexture, skyTexture, stoneBumpTex, stoneTexture, tiled, tuftTexture,
+  cloudShadowTexture, grassBumpTex, grassTexture, metalBumpTex, metalTexture, pathBumpTex, pathTexture,
+  photoTex, scorchTexture, stoneBumpTex, stoneTexture, tiled, tuftTexture,
 } from './textures';
 import type { Enemy, RenderEffect, RenderState, TowerKind, Vec } from './types';
 
 const AIR_RADIUS = 95;
 const MAX_PARTS = 1600;
+
+const grassTime = { value: 0 };
+
+const CompositeShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uTime: { value: 0 },
+    uVig: { value: 0.34 },
+  },
+  vertexShader: `varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uTime;
+    uniform float uVig;
+    varying vec2 vUv;
+    void main() {
+      vec2 uv = vUv;
+      vec2 c = uv - 0.5;
+      float r2 = dot(c, c);
+      float ab = 0.0085 * r2;
+      vec4 col;
+      col.r = texture2D(tDiffuse, uv + c * ab).r;
+      col.g = texture2D(tDiffuse, uv).g;
+      col.b = texture2D(tDiffuse, uv - c * ab).b;
+      col.a = 1.0;
+      col.rgb *= 1.0 - uVig * smoothstep(0.12, 0.72, r2);
+      float g = fract(sin(dot(uv * vec2(1234.5, 987.3) + uTime * 0.37, vec2(12.9898, 78.233))) * 43758.5453);
+      col.rgb += (g - 0.5) * 0.026;
+      gl_FragColor = col;
+    }`,
+};
 
 interface TowerView {
   group: THREE.Group;
@@ -60,6 +96,9 @@ const SKINS: Record<string, SkinCfg> = {
   phantom: { map: 'velvet', nor: 'velvetN', rough: 0.9, metal: 0, tint: 0.35, rep: 2 },
   wrecker: { map: 'metal', nor: 'metalN', rough: 0.42, metal: 0.65, tint: 0.2, rep: 2 },
   colossus: { map: 'rockSkin', nor: 'rockSkinN', rough: 0.98, metal: 0, tint: 0.22, rep: 2.6 },
+  shade: { map: 'velvet', nor: 'velvetN', rough: 0.95, metal: 0, tint: 0.3, rep: 2.2 },
+  carrier: { map: 'carapace', nor: 'carapaceN', rough: 0.4, metal: 0.25, tint: 0.35, rep: 2.4 },
+  ravager: { map: 'hide', nor: 'hideN', rough: 0.6, metal: 0.1, tint: 0.25, rep: 2.4 },
 };
 
 interface Spin {
@@ -483,6 +522,8 @@ export class Renderer3D {
   private fireflies!: THREE.Points;
   private fireMat!: THREE.PointsMaterial;
   private fireBase!: Float32Array;
+  private compPass!: ShaderPass;
+  private skyMat!: THREE.ShaderMaterial;
   private barT = 0;
   private vigCv: HTMLCanvasElement | null = null;
 
@@ -528,6 +569,7 @@ export class Renderer3D {
     this.buildClouds();
     this.buildMist();
     this.buildFireflies();
+    this.buildSky();
     this.buildRain();
     this.buildCelestials();
     this.buildRipples();
@@ -546,6 +588,8 @@ export class Renderer3D {
     this.bloomPass = new UnrealBloomPass(new THREE.Vector2(W, H), 0.5, 0.45, 0.84);
     this.composer.addPass(this.bloomPass);
     this.composer.addPass(new OutputPass());
+    this.compPass = new ShaderPass(CompositeShader);
+    this.composer.addPass(this.compPass);
 
     this.ghostMat = new THREE.MeshStandardMaterial({ color: '#4ade80', transparent: true, opacity: 0.5, roughness: 0.5 });
     const ghostBase = new THREE.Mesh(new THREE.CylinderGeometry(15, 17, 10, 8), this.ghostMat);
@@ -635,20 +679,6 @@ export class Renderer3D {
     this.scene.add(this.fillLight);
   }
 
-  private buildSky() {
-    const sky = new THREE.Mesh(
-      new THREE.SphereGeometry(4200, 32, 15),
-      new THREE.MeshBasicMaterial({ map: skyTexture(), side: THREE.BackSide, fog: false, depthWrite: false }),
-    );
-    sky.renderOrder = -2;
-    this.scene.add(sky);
-    this.nightSkyMat = new THREE.MeshBasicMaterial({
-      map: nightSkyTexture(), side: THREE.BackSide, fog: false, depthWrite: false, transparent: true, opacity: 0,
-    });
-    const night = new THREE.Mesh(new THREE.SphereGeometry(4150, 32, 15), this.nightSkyMat);
-    night.renderOrder = -1;
-    this.scene.add(night);
-  }
 
   private buildGround() {
     const maxAniso = this.renderer.capabilities.getMaxAnisotropy();
@@ -739,6 +769,57 @@ export class Renderer3D {
     terrain.receiveShadow = true;
     this.scene.add(terrain);
     this.levelMeshes.push(terrain);
+
+    const BLADES = 3200;
+    const bladeGeo = new THREE.PlaneGeometry(1.6, 8, 1, 3);
+    bladeGeo.translate(0, 4, 0);
+    const bladeMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(b.groundTint ?? '#4a7c3a').multiplyScalar(0.9),
+      side: THREE.DoubleSide,
+      roughness: 0.92,
+      metalness: 0,
+    });
+    bladeMat.onBeforeCompile = sh => {
+      sh.uniforms.uTime = grassTime;
+      sh.vertexShader = `uniform float uTime;\n${sh.vertexShader}`.replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+          float bph = instanceMatrix[3].x * 0.13 + instanceMatrix[3].z * 0.17;
+          float sway = sin(uTime * 2.1 + bph) * 0.55 + sin(uTime * 3.7 + bph * 1.7) * 0.3;
+          float tip = pow(uv.y, 1.6);
+          transformed.x += sway * tip * 2.8;
+          transformed.z += cos(uTime * 1.6 + bph * 0.8) * tip * 1.5;`,
+      );
+    };
+    const grass = new THREE.InstancedMesh(bladeGeo, bladeMat, BLADES);
+    const gm4 = new THREE.Matrix4();
+    const gq = new THREE.Quaternion();
+    const gp = new THREE.Vector3();
+    const gs = new THREE.Vector3();
+    const gc = new THREE.Color();
+    let gi = 0;
+    let guard2 = 0;
+    while (gi < BLADES && guard2++ < BLADES * 14) {
+      const gx2 = Math.random() * (W + 240) - 120;
+      const gz2 = Math.random() * (H + 240) - 120;
+      if (distToPath(gx2, gz2) < 34) continue;
+      const cgx = Math.floor(gx2 / CELL);
+      const cgy = Math.floor(gz2 / CELL);
+      if (cgx < 0 || cgy < 0 || cgx >= COLS || cgy >= ROWS) continue;
+      if (BLOCKED_CELLS.has(`${cgx},${cgy}`)) continue;
+      gp.set(gx2, this.terrainHeightAt(gx2, gz2), gz2);
+      gq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * Math.PI * 2);
+      gs.set(0.7 + Math.random() * 0.8, 0.65 + Math.random() * 1.0, 1);
+      gm4.compose(gp, gq, gs);
+      grass.setMatrixAt(gi, gm4);
+      gc.setHSL(0.26 + Math.random() * 0.06, 0.5, 0.3 + Math.random() * 0.16);
+      grass.setColorAt(gi, gc);
+      gi++;
+    }
+    grass.count = gi;
+    grass.receiveShadow = true;
+    this.scene.add(grass);
+    this.levelMeshes.push(grass);
 
     const nearTiles: THREE.Vector3[] = [];
     for (let gy = 0; gy < ROWS; gy++) {
@@ -1224,6 +1305,56 @@ export class Renderer3D {
     this.scene.add(this.fireflies);
   }
 
+  private buildSky() {
+    this.skyMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthWrite: false,
+      fog: false,
+      uniforms: {
+        uDaylight: { value: 1 },
+        uSunDir: { value: new THREE.Vector3(0, 1, 0) },
+      },
+      vertexShader: `varying vec3 vDir;
+        void main() {
+          vDir = position;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `
+        varying vec3 vDir;
+        uniform float uDaylight;
+        uniform vec3 uSunDir;
+        float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 45.164))) * 43758.5453); }
+        void main() {
+          vec3 d = normalize(vDir);
+          float h = clamp(d.y * 0.5 + 0.5, 0.0, 1.0);
+          vec3 dayTop = vec3(0.18, 0.40, 0.76);
+          vec3 dayHor = vec3(0.72, 0.81, 0.91);
+          vec3 duskHor = vec3(0.86, 0.44, 0.24);
+          vec3 nightTop = vec3(0.010, 0.018, 0.045);
+          vec3 nightHor = vec3(0.05, 0.075, 0.14);
+          float dayK = smoothstep(0.0, 1.0, uDaylight);
+          float duskK = clamp(1.0 - abs(uDaylight - 0.35) / 0.35, 0.0, 1.0);
+          vec3 top = mix(nightTop, dayTop, dayK);
+          vec3 hor = mix(nightHor, dayHor, dayK);
+          hor = mix(hor, duskHor, duskK * 0.6);
+          vec3 col = mix(hor, top, pow(h, 0.85));
+          vec3 cell = floor(d * 340.0);
+          float star = step(0.9982, hash(cell));
+          float tw = 0.6 + 0.4 * sin(uDaylight * 0.0 + cell.x * 12.9 + cell.y * 4.7 + cell.z * 7.3);
+          col += star * (1.0 - dayK) * tw * smoothstep(0.02, 0.3, d.y);
+          float s = max(dot(d, normalize(uSunDir)), 0.0);
+          col += vec3(1.0, 0.88, 0.62) * pow(s, 1200.0) * 4.0 * clamp(uDaylight + 0.12, 0.0, 1.0);
+          col += vec3(1.0, 0.62, 0.32) * pow(s, 22.0) * 0.38 * (1.0 - dayK * 0.55);
+          gl_FragColor = vec4(col, 1.0);
+        }`,
+    });
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(5200, 28, 18), this.skyMat);
+    sky.frustumCulled = false;
+    sky.renderOrder = -10;
+    this.scene.add(sky);
+  }
+
   private buildMist() {
     const blobTex = cloudShadowTexture();
     for (let i = 0; i < 12; i++) {
@@ -1609,6 +1740,10 @@ export class Renderer3D {
       H / 2 - 460,
     );
     this.sun.intensity = (0.06 + 2.2 * ph.daylight) * (1 - 0.45 * rain);
+    if (this.skyMat) {
+      this.skyMat.uniforms.uDaylight.value = ph.daylight * (1 - rain * 0.55);
+      (this.skyMat.uniforms.uSunDir.value as THREE.Vector3).copy(this.sun.position).normalize();
+    }
     const sunsetK = Math.max(0, Math.min(1, 1 - ph.elev * 2.2)) * ph.daylight;
     this.sun.color.set('#fff0d4').lerp(new THREE.Color('#ff9448'), sunsetK);
     const ma = sa + Math.PI;
@@ -1769,6 +1904,8 @@ export class Renderer3D {
     const barActive = this.cinemaMode !== 'off' || this.introT > 0 || s.photo;
     this.barT += ((barActive ? 1 : 0) - this.barT) * Math.min(1, rdt * 4);
     if (s.photo) this.thetaT += rdt * 0.025;
+    grassTime.value = s.elapsed;
+    if (this.compPass) this.compPass.uniforms.uTime.value = s.elapsed % 10;
 
     this.fireMat.opacity = ph.night * 0.9;
     if (ph.night > 0.02) {
@@ -1967,6 +2104,54 @@ export class Renderer3D {
         yaw.add(pylon);
         break;
       }
+      case 'mortar': {
+        const cradle = new THREE.Mesh(new THREE.BoxGeometry(13, 6, 12), getMetalTint('#78350f').clone());
+        cradle.position.y = 4;
+        cradle.castShadow = true;
+        yaw.add(cradle);
+        const tube = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.8, 17, 12).rotateZ(-Math.PI / 2), getMetalTint(def.color).clone());
+        tube.rotation.z = 0.55;
+        tube.position.y = 7;
+        tube.castShadow = true;
+        yaw.add(tube);
+        const band = new THREE.Mesh(new THREE.CylinderGeometry(3.9, 3.9, 2, 12).rotateZ(-Math.PI / 2), std('#292524', { roughness: 0.7 }));
+        band.rotation.z = 0.55;
+        band.position.set(-2, 7.6, 0);
+        yaw.add(band);
+        break;
+      }
+      case 'venom': {
+        const pod = new THREE.Mesh(new THREE.SphereGeometry(6.4, 12, 10), getMetalTint('#365314').clone());
+        pod.position.y = 5;
+        pod.castShadow = true;
+        yaw.add(pod);
+        for (const side of [-1, 1]) {
+          const tank = new THREE.Mesh(new THREE.CapsuleGeometry(2, 5, 4, 8), std('#a3e635', { emissive: '#84cc16', emissiveIntensity: 0.5, roughness: 0.3 }));
+          tank.position.set(2.5, 9.5, side * 4.4);
+          yaw.add(tank);
+        }
+        addBarrel(new THREE.CylinderGeometry(1.2, 1.6, 13, 8).rotateZ(-Math.PI / 2), getMetalTint(def.color).clone(), 10);
+        break;
+      }
+      case 'prism': {
+        const fork = new THREE.Mesh(new THREE.BoxGeometry(9, 5, 7), getMetalTint('#831843').clone());
+        fork.position.y = 4;
+        fork.castShadow = true;
+        yaw.add(fork);
+        const prong1 = new THREE.Mesh(new THREE.BoxGeometry(2.2, 10, 2.2), getMetalTint('#9d174d').clone());
+        prong1.position.set(3, 10, 3.4);
+        prong1.castShadow = true;
+        yaw.add(prong1);
+        const prong2 = prong1.clone();
+        prong2.position.z = -3.4;
+        yaw.add(prong2);
+        const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(3.6), new THREE.MeshStandardMaterial({ color: def.color, emissive: def.color, emissiveIntensity: 1.6, roughness: 0.15, metalness: 0.3, transparent: true, opacity: 0.92 }));
+        crystal.position.y = 12.5;
+        crystal.userData.bobY = false;
+        yaw.add(crystal);
+        spinnerObj = crystal;
+        break;
+      }
       case 'bank': {
         const vault = new THREE.Mesh(new THREE.BoxGeometry(17, 11, 15), getMetalTint('#6b5518').clone());
         vault.position.y = 3;
@@ -2117,8 +2302,8 @@ export class Renderer3D {
       view.yaw.rotation.y = -t.angle;
       if (view.barrel) view.barrel.position.x = view.barrelBaseX - t.recoil * 2.5;
       if (view.spinner) {
-        view.spinner.rotation.y = s.elapsed * 2.2;
-        view.spinner.position.y = 24 + Math.sin(s.elapsed * 2.5 + t.id) * 1.6;
+        view.spinner.rotation.y = s.elapsed * (view.spinner.userData.bobY === false ? 2.4 : 2.2);
+        if (view.spinner.userData.bobY !== false) view.spinner.position.y = 24 + Math.sin(s.elapsed * 2.5 + t.id) * 1.6;
       }
       if (view.flash) {
         view.flash.visible = t.fireFlash > 0;
@@ -2462,6 +2647,58 @@ export class Renderer3D {
         }
         break;
       }
+      case 'shade': {
+        const cloak = new THREE.Mesh(new THREE.ConeGeometry(r * 0.95, r * 2.4, 9), bodyMat);
+        cloak.position.y = r * 1.2;
+        body.add(cloak);
+        const hood = new THREE.Mesh(new THREE.SphereGeometry(r * 0.5, 10, 8), bodyMat);
+        hood.position.y = r * 2.2;
+        body.add(hood);
+        mkEyes([[r * 0.2, r * 2.25, r * 0.22], [r * 0.2, r * 2.25, -r * 0.22]], '#c4b5fd', r * 0.12);
+        const shadeOrb = new THREE.Mesh(new THREE.SphereGeometry(r * 0.22, 8, 8), std('#ddd6fe', { emissive: '#a78bfa', emissiveIntensity: 1.6 }));
+        shadeOrb.position.y = r * 1.1;
+        body.add(shadeOrb);
+        spins.push({ obj: shadeOrb, axis: 'y', speed: 2.2 });
+        break;
+      }
+      case 'carrier': {
+        const husk = new THREE.Mesh(new THREE.SphereGeometry(r * 0.85, 12, 10), bodyMat);
+        husk.scale.set(1.5, 0.85, 1.1);
+        body.add(husk);
+        const pod = new THREE.Mesh(new THREE.SphereGeometry(r * 0.45, 10, 8), std('#701a75', { emissive: '#e879f9', emissiveIntensity: 0.8, roughness: 0.3 }));
+        pod.position.set(r * 1.2, 0, 0);
+        body.add(pod);
+        mkEyes([[r * 1.5, r * 0.15, r * 0.2], [r * 1.5, r * 0.15, -r * 0.2]], '#f0abfc', r * 0.13);
+        const wingGeo2 = new THREE.BoxGeometry(r * 0.5, 0.3, r * 2.3);
+        const wingMat2 = new THREE.MeshStandardMaterial({ color: def.color, transparent: true, opacity: 0.35, roughness: 0.2, metalness: 0.1, side: THREE.DoubleSide, depthWrite: false });
+        fadeMats.push(wingMat2);
+        for (const wz of [-1, 1]) {
+          const pivot = new THREE.Group();
+          pivot.position.set(0, r * 0.4, 0);
+          const wing = new THREE.Mesh(wingGeo2, wingMat2);
+          wing.position.z = wz * r * 1.5;
+          pivot.add(wing);
+          body.add(pivot);
+          limbs.push({ obj: pivot, axis: 'x', phase: wz > 0 ? 0 : Math.PI, amp: 0.55, speed: 7 });
+        }
+        break;
+      }
+      case 'ravager': {
+        mkLeg([0, r * 1.0, r * 0.5], r * 0.34, r * 0.85, 0, 6);
+        mkLeg([0, r * 1.0, -r * 0.5], r * 0.34, r * 0.85, Math.PI, 6);
+        const hump = new THREE.Mesh(new THREE.SphereGeometry(r * 1.0, 12, 10), bodyMat);
+        hump.scale.set(1.5, 0.9, 1.0);
+        hump.position.y = r * 1.9;
+        body.add(hump);
+        const jaw = new THREE.Mesh(new THREE.ConeGeometry(r * 0.5, r * 1.1, 8).rotateZ(-Math.PI / 2), bodyMat);
+        jaw.position.set(r * 1.4, r * 1.2, 0);
+        body.add(jaw);
+        mkEyes([[r * 1.15, r * 1.9, r * 0.24], [r * 1.15, r * 1.9, -r * 0.24]], '#fca5a5', r * 0.13);
+        for (const side of [-1, 1]) {
+          addLimb([0, r * 2.2, side * r * 0.9], new THREE.CapsuleGeometry(r * 0.26, r * 1.3, 4, 8), { phase: side > 0 ? Math.PI / 2 : -Math.PI / 2, amp: 0.5, speed: 6.5, off: [0, -r * 0.95, 0] });
+        }
+        break;
+      }
       case 'colossus': {
         const torso = new THREE.Mesh(new THREE.DodecahedronGeometry(r * 1.25), bodyMat);
         torso.position.y = r * 2.0;
@@ -2642,6 +2879,8 @@ export class Renderer3D {
         let obj: THREE.Object3D;
         if (p.kind === 'frost') obj = new THREE.Mesh(new THREE.OctahedronGeometry(3), mat);
         else if (p.kind === 'missile') obj = new THREE.Mesh(new THREE.ConeGeometry(1.7, 6.5, 8).rotateZ(-Math.PI / 2), mat);
+        else if (p.kind === 'mortar') obj = new THREE.Mesh(new THREE.SphereGeometry(4.4, 10, 8), new THREE.MeshStandardMaterial({ color: '#57534e', roughness: 0.5, metalness: 0.4 }));
+        else if (p.kind === 'venom') obj = new THREE.Mesh(new THREE.CapsuleGeometry(1.2, 4, 4, 8).rotateZ(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#a3e635', emissive: '#84cc16', emissiveIntensity: 0.7, roughness: 0.35 }));
         else obj = new THREE.Mesh(new THREE.SphereGeometry(p.kind === 'cannon' ? 3.6 : 2.4, 8, 8), mat);
         this.scene.add(obj);
         const line = new THREE.Line(
@@ -2655,9 +2894,23 @@ export class Renderer3D {
       }
       pv.obj.position.set(p.x, 8, p.y);
       if (p.kind === 'missile') pv.obj.rotation.y = -Math.atan2(p.ty - p.y, p.tx - p.x);
-      pv.trail.unshift(new THREE.Vector3(p.x, 8, p.y));
-      if (pv.trail.length > 7) pv.trail.pop();
-      pv.line.geometry.setFromPoints(pv.trail);
+      if (p.kind === 'mortar' && p.sx !== undefined && p.sy !== undefined) {
+        const total = Math.hypot(p.tx - p.sx, p.ty - p.sy) || 1;
+        const done = Math.hypot(p.tx - p.x, p.ty - p.y);
+        const prog = Math.max(0, Math.min(1, 1 - done / total));
+        pv.obj.position.y = 8 + Math.sin(prog * Math.PI) * (34 + total * 0.24);
+        pv.obj.rotation.x = s.elapsed * 4;
+        pv.line.visible = false;
+      } else if (p.kind === 'venom') {
+        pv.obj.rotation.y = -Math.atan2(p.ty - p.y, p.tx - p.x);
+      } else {
+        pv.obj.position.y = 8;
+      }
+      if (p.kind !== 'mortar') {
+        pv.trail.unshift(new THREE.Vector3(p.x, 8, p.y));
+        if (pv.trail.length > 7) pv.trail.pop();
+        pv.line.geometry.setFromPoints(pv.trail);
+      }
     }
   }
 

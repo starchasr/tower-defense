@@ -25,6 +25,7 @@ function ghostTower(kind: TowerKind, gx: number, gy: number): Tower {
   return {
     id: -1, kind, gx, gy, x: (gx + 0.5) * CELL, y: (gy + 0.5) * CELL,
     level: 0, cd: 0, angle: -Math.PI / 2, targeting: 'first',
+    beamTargetId: 0, beamHeat: 0,
     spent: 0, kills: 0, damage: 0, fireFlash: 0, recoil: 0, stunT: 0, placedAt: 0,
   };
 }
@@ -698,6 +699,7 @@ export class Game {
       shieldHp: def.shieldHp ? Math.round(def.shieldHp * hpMul * this.diffHp) : 0,
       shieldMax: def.shieldHp ? Math.round(def.shieldHp * hpMul * this.diffHp) : 0,
       shieldT: 99, burnDps: 0, burnT: 0, burnTowerId: 0, enraged: false,
+      poisonDps: 0, poisonT: 0, poisonTowerId: 0, blinkT: def.blinkEvery ?? 0,
       cloakT: def.cloakEvery ? def.cloakEvery * (0.6 + Math.random() * 0.8) : 0, cloaked: false,
       slamCd: def.slam ? def.slam.every * (0.5 + Math.random() * 0.6) : 0,
       elite,
@@ -876,7 +878,7 @@ export class Game {
           x: e.x + (Math.random() - 0.5) * 18,
           y: e.y + (Math.random() - 0.5) * 18,
         };
-        this.spawnEnemy(s.kind, e.hpMul * s.hpMul, pos, e.wp, e.traveled, rewardScale(this.wave));
+        this.spawnEnemy(s.kind, e.hpMul * s.hpMul, pos, ENEMIES[s.kind].flying ? 1 : e.wp, e.traveled, rewardScale(this.wave));
       }
     }
   }
@@ -968,6 +970,40 @@ export class Game {
         this.smoke(t.x + Math.cos(t.angle) * 20, t.y + Math.sin(t.angle) * 20, 2);
         this.sfx.play('missile');
         break;
+      case 'mortar':
+        this.projectiles.push({
+          id: this.nextId++, x: t.x + Math.cos(t.angle) * 14, y: t.y + Math.sin(t.angle) * 14,
+          sx: t.x, sy: t.y,
+          targetId: target.id, tx: target.x, ty: target.y, speed: 175, damage: lv.damage * mul,
+          splash: lv.splash ?? 0, slowFactor: 1, slowTime: 0, kind: 'mortar', color: '#d6d3d1', tower: t, trailT: 0,
+        });
+        t.fireFlash = 0.12;
+        this.smoke(t.x + Math.cos(t.angle) * 16, t.y + Math.sin(t.angle) * 16, 3);
+        this.sfx.play('boom');
+        break;
+      case 'venom':
+        this.projectiles.push({
+          id: this.nextId++, x: t.x + Math.cos(t.angle) * 14, y: t.y + Math.sin(t.angle) * 14,
+          targetId: target.id, tx: target.x, ty: target.y, speed: 340, damage: lv.damage * mul,
+          splash: 0, slowFactor: 1, slowTime: 0, kind: 'venom', color: '#a3e635', tower: t, trailT: 0,
+        });
+        t.fireFlash = 0.06;
+        this.sfx.play('frost');
+        break;
+      case 'prism': {
+        if (t.beamTargetId !== target.id) {
+          t.beamTargetId = target.id;
+          t.beamHeat = 0;
+        }
+        t.beamHeat = Math.min(2, t.beamHeat + 0.4);
+        this.dealDamage(target, lv.damage * mul * (1 + t.beamHeat), true, t);
+        const hot = Math.min(1, t.beamHeat / 2);
+        const beamCol = hot > 0.02 ? `#${Math.round(244 + 11 * hot).toString(16).padStart(2, '0')}${Math.round(114 + 130 * hot).toString(16).padStart(2, '0')}e6` : '#f472b6';
+        this.pushEffect({ type: 'tracer', x1: t.x, y1: t.y, x2: target.x, y2: target.y, t: 0, life: 0.1, color: beamCol });
+        t.fireFlash = 0.05;
+        this.sfx.play('zap');
+        break;
+      }
       case 'flame': {
         const spread = 0.55;
         for (const e of [...this.enemies.values()]) {
@@ -1184,6 +1220,44 @@ export class Game {
       }
 
       e.slowT = Math.max(0, e.slowT - dt);
+      if (e.def.berserk && !e.enraged && e.hp < e.maxHp * 0.5) {
+        e.enraged = true;
+        this.floatText(e.x, e.y - e.def.size - 10, 'ENRAGED', '#ef4444');
+        this.burst(e.x, e.y, '#ef4444', 10);
+      }
+      if (e.def.blinkEvery) {
+        e.blinkT -= dt;
+        if (e.blinkT <= 0) {
+          e.blinkT = e.def.blinkEvery * (0.8 + Math.random() * 0.4);
+          const wp2 = GROUND_PATH[Math.min(e.wp, GROUND_PATH.length - 1)];
+          const bdx = wp2.x - e.x;
+          const bdy = wp2.y - e.y;
+          const bdl = Math.hypot(bdx, bdy) || 1;
+          const jump = Math.min(e.def.blinkDist ?? 70, bdl);
+          this.pushEffect({ type: 'soul', x: e.x, y: e.y, color: '#c4b5fd', t: 0, life: 0.5 });
+          e.x += (bdx / bdl) * jump;
+          e.y += (bdy / bdl) * jump;
+          this.burst(e.x, e.y, '#a78bfa', 8);
+        }
+      }
+      if (e.poisonT > 0) {
+        e.poisonT -= dt;
+        e.hp -= e.poisonDps * dt;
+        if (e.hp <= 0) {
+          const tw = this.towers.find(t2 => t2.id === e.poisonTowerId);
+          for (const o of [...this.enemies.values()]) {
+            if (o.id === e.id) continue;
+            if (Math.hypot(o.x - e.x, o.y - e.y) < 70) {
+              o.poisonDps = Math.max(o.poisonT > 0 ? o.poisonDps : 0, e.poisonDps * 0.5);
+              o.poisonT = Math.max(o.poisonT, 2);
+              o.poisonTowerId = e.poisonTowerId;
+            }
+          }
+          this.pushEffect({ type: 'ring', x: e.x, y: e.y, r: 70, t: 0, life: 0.4, color: '#a3e635' });
+          this.killEnemy(e, tw);
+          continue;
+        }
+      }
       const path = e.def.flying ? FLY_PATH : GROUND_PATH;
       const total = e.def.flying ? FLY_LEN : GROUND_LEN;
       const next = path[Math.min(e.wp, path.length - 1)];
@@ -1279,6 +1353,7 @@ export class Game {
         continue;
       }
       if (t.kind === 'amp' || t.kind === 'bank') continue;
+      if (t.kind === 'prism') t.beamHeat = Math.max(0, t.beamHeat - dt * 0.7);
       t.cd -= dt;
       if (t.cd > 0) continue;
       const lv = TOWERS[t.kind].levels[t.level];
@@ -1335,6 +1410,13 @@ export class Game {
           this.dealDamage(target, p.damage, false, p.tower);
           if (this.enemies.has(target.id)) {
             this.burst(p.x, p.y, p.color, 3, 40);
+            if (p.kind === 'venom') {
+              const lvV = TOWERS.venom.levels[p.tower.level];
+              target.poisonDps = Math.max(target.poisonT > 0 ? target.poisonDps : 0, (lvV.poison ?? 0) * this.damageMul(p.tower));
+              target.poisonT = Math.max(target.poisonT, lvV.poisonTime ?? 3);
+              target.poisonTowerId = p.tower.id;
+              this.pushEffect({ type: 'ring', x: p.x, y: p.y, r: 14, t: 0, life: 0.3, color: '#a3e635' });
+            }
             if (p.slowTime > 0) {
               if (!target.def.slowImmune) {
                 target.slowFactor = target.slowT > 0 ? Math.min(target.slowFactor, p.slowFactor) : p.slowFactor;

@@ -64,6 +64,26 @@ const TOWER_ICON: Record<string, ReactNode> = {
       <path d="M12 6.5v11M14.6 9.2c0-1.1-1.2-1.9-2.6-1.9s-2.6.8-2.6 1.9 1.1 1.6 2.6 1.9 2.6.9 2.6 2-1.2 1.9-2.6 1.9-2.6-.8-2.6-1.9" />
     </Ico>
   ),
+  mortar: (
+    <Ico>
+      <path d="M4 20h16" />
+      <path d="M6 20l7-13 5 3-6 10" />
+      <circle cx="13.5" cy="6.5" r="1.6" fill="currentColor" stroke="none" />
+    </Ico>
+  ),
+  venom: (
+    <Ico>
+      <path d="M12 3c3.5 4.5 5.5 7 5.5 10a5.5 5.5 0 01-11 0c0-3 2-5.5 5.5-10z" />
+      <path d="M9.5 13.5c1.5 1 3.5 1 5 0" />
+    </Ico>
+  ),
+  prism: (
+    <Ico>
+      <path d="M12 3l7 12H5l7-12z" />
+      <path d="M8.5 20h7" />
+      <path d="M12 15v5" />
+    </Ico>
+  ),
 };
 
 export function Shop({ ui, game }: { ui: UiSnapshot; game: Game }) {

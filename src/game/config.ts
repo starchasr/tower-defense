@@ -123,6 +123,42 @@ export const TOWERS: Record<TowerKind, TowerDef> = {
       { cost: 220, damage: 0, range: 0, rate: 0, aura: { range: 110, dmgPct: 0.4 } },
     ],
   },
+  mortar: {
+    kind: 'mortar',
+    name: 'Mortar',
+    desc: 'Lobs arcing shells with a huge splash. Ground only, slow.',
+    canHitFly: false,
+    color: '#d97706',
+    levels: [
+      { cost: 170, damage: 42, range: 240, rate: 0.42, splash: 72 },
+      { cost: 150, damage: 66, range: 260, rate: 0.48, splash: 82 },
+      { cost: 240, damage: 96, range: 280, rate: 0.54, splash: 96 },
+    ],
+  },
+  venom: {
+    kind: 'venom',
+    name: 'Venom',
+    desc: 'Toxin darts poison targets; poisoned enemies burst and spread on death.',
+    canHitFly: true,
+    color: '#84cc16',
+    levels: [
+      { cost: 140, damage: 6, range: 125, rate: 1.5, poison: 16, poisonTime: 3 },
+      { cost: 120, damage: 9, range: 135, rate: 1.7, poison: 26, poisonTime: 3.5 },
+      { cost: 200, damage: 13, range: 145, rate: 1.9, poison: 40, poisonTime: 4 },
+    ],
+  },
+  prism: {
+    kind: 'prism',
+    name: 'Prism',
+    desc: 'Focuses a ramping beam — damage grows the longer it holds one target. Hits air.',
+    canHitFly: true,
+    color: '#f472b6',
+    levels: [
+      { cost: 240, damage: 22, range: 155, rate: 2.2 },
+      { cost: 210, damage: 34, range: 170, rate: 2.4 },
+      { cost: 330, damage: 50, range: 185, rate: 2.6 },
+    ],
+  },
   bank: {
     kind: 'bank',
     name: 'Vault',
@@ -138,7 +174,7 @@ export const TOWERS: Record<TowerKind, TowerDef> = {
 };
 
 export const TOWER_LIST: TowerDef[] = [
-  TOWERS.gun, TOWERS.cannon, TOWERS.frost, TOWERS.sniper, TOWERS.tesla, TOWERS.flame, TOWERS.missile, TOWERS.amp, TOWERS.bank,
+  TOWERS.gun, TOWERS.cannon, TOWERS.frost, TOWERS.sniper, TOWERS.tesla, TOWERS.flame, TOWERS.missile, TOWERS.amp, TOWERS.bank, TOWERS.mortar, TOWERS.venom, TOWERS.prism,
 ];
 
 export const ELITES: Record<string, { name: string; hpMul: number; speedMul: number; armorAdd: number; regenPct: number; rewardMul: number; tint: string }> = {
@@ -159,5 +195,8 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
   shield: { kind: 'shield', name: 'Shielded', hp: 90, speed: 52, reward: 20, armor: 1, size: 12, color: '#38bdf8', flying: false, leak: 2, shieldHp: 120, shieldRegen: 25 },
   phantom: { kind: 'phantom', name: 'Phantom', hp: 85, speed: 74, reward: 19, armor: 0, size: 12, color: '#c084fc', flying: false, leak: 1, cloakEvery: 4.2, cloakTime: 1.8 },
   wrecker: { kind: 'wrecker', name: 'Wrecker', hp: 170, speed: 56, reward: 26, armor: 2, size: 14, color: '#fb7185', flying: false, leak: 2, disable: { radius: 72, stun: 5, channel: 3, every: 9 } },
+  shade: { kind: 'shade', name: 'Shade', hp: 130, speed: 66, reward: 30, armor: 1, size: 12, color: '#a78bfa', flying: false, leak: 2, blinkEvery: 3.2, blinkDist: 80 },
+  carrier: { kind: 'carrier', name: 'Carrier', hp: 360, speed: 50, reward: 64, armor: 3, size: 18, color: '#e879f9', flying: true, leak: 3, spawnOnDeath: { kind: 'flyer', count: 3, hpMul: 0.4 } },
+  ravager: { kind: 'ravager', name: 'Ravager', hp: 430, speed: 40, reward: 72, armor: 5, size: 17, color: '#ef4444', flying: false, leak: 3, berserk: true },
   colossus: { kind: 'colossus', name: 'Colossus', hp: 2600, speed: 24, reward: 240, armor: 14, size: 26, color: '#cbd5e1', flying: false, leak: 8, slowImmune: true },
 };
