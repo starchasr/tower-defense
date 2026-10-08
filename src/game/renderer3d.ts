@@ -59,6 +59,7 @@ const SKINS: Record<string, SkinCfg> = {
   shield: { map: 'carapace', nor: 'carapaceN', rough: 0.32, metal: 0.5, tint: 0.25, rep: 2.2 },
   phantom: { map: 'velvet', nor: 'velvetN', rough: 0.9, metal: 0, tint: 0.35, rep: 2 },
   wrecker: { map: 'metal', nor: 'metalN', rough: 0.42, metal: 0.65, tint: 0.2, rep: 2 },
+  colossus: { map: 'rockSkin', nor: 'rockSkinN', rough: 0.98, metal: 0, tint: 0.22, rep: 2.6 },
 };
 
 interface Spin {
@@ -1570,6 +1571,8 @@ export class Renderer3D {
   update(s: RenderState) {
     this.resizeCheck();
     this.syncTowers(s);
+    this.syncBarrels(s);
+    this.syncCoins(s);
     this.syncEnemies(s);
     this.syncProjectiles(s);
     this.syncFx(s);
@@ -2036,6 +2039,63 @@ export class Renderer3D {
     return { group, yaw, barrel, barrelBaseX, flash, spinner: spinnerObj, ringMat, levelCubes, gems, aura, rangeRing, born: 0 };
   }
 
+  private barrelViews = new Map<string, THREE.Group>();
+  private coinViews = new Map<number, THREE.Mesh>();
+
+  private syncBarrels(s: RenderState) {
+    for (const [id, g] of this.barrelViews) {
+      if (!s.barrels.some(b => `${b.x},${b.y}` === id)) {
+        this.scene.remove(g);
+        disposeObj(g);
+        this.barrelViews.delete(id);
+      }
+    }
+    s.barrels.forEach((b, i) => {
+      const key = `${b.x},${b.y}`;
+      let g = this.barrelViews.get(key);
+      if (!g) {
+        g = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(5.4, 5.4, 12, 12), new THREE.MeshStandardMaterial({ color: '#7f1d1d', roughness: 0.55, metalness: 0.35 }));
+        body.position.y = 6;
+        body.castShadow = true;
+        g.add(body);
+        const band = new THREE.Mesh(new THREE.CylinderGeometry(5.55, 5.55, 2.4, 12), new THREE.MeshStandardMaterial({ color: '#f59e0b', emissive: '#f59e0b', emissiveIntensity: 0.55, roughness: 0.4 }));
+        band.position.y = 6;
+        g.add(band);
+        this.scene.add(g);
+      }
+      g.position.set(b.x, 0, b.y);
+      g.rotation.y = s.elapsed * 0.4 + i;
+      this.barrelViews.set(key, g);
+    });
+  }
+
+  private syncCoins(s: RenderState) {
+    for (const [id, m] of this.coinViews) {
+      if (!s.coins.some(c => c.id === id)) {
+        this.scene.remove(m);
+        disposeObj(m);
+        this.coinViews.delete(id);
+      }
+    }
+    for (const c of s.coins) {
+      let m = this.coinViews.get(c.id);
+      if (!m) {
+        m = new THREE.Mesh(
+          new THREE.CylinderGeometry(4.6, 4.6, 1.3, 16).rotateX(Math.PI / 2),
+          new THREE.MeshStandardMaterial({ color: '#fde047', emissive: '#facc15', emissiveIntensity: 0.65, roughness: 0.25, metalness: 0.85 }),
+        );
+        m.castShadow = true;
+        this.scene.add(m);
+      }
+      const blink = c.t > 5.4 ? (Math.sin(c.t * 18) > 0 ? 1 : 0.25) : 1;
+      m.visible = blink > 0.5;
+      m.position.set(c.x, 5 + Math.sin(s.elapsed * 3 + c.id) * 1.6, c.y);
+      m.rotation.y = s.elapsed * 3.2;
+      this.coinViews.set(c.id, m);
+    }
+  }
+
   private syncTowers(s: RenderState) {
     for (const [id, view] of this.towerViews) {
       if (!s.towers.some(t => t.id === id)) {
@@ -2399,6 +2459,23 @@ export class Renderer3D {
           for (let i = 0; i < 3; i++) {
             mkLeg([(i - 1) * r * 0.5, r * 0.85, side * r * 0.62], r * 0.13, r * 0.7, ((i + (side > 0 ? 0 : 1)) % 2) * Math.PI, 6, side * 0.25, 'y');
           }
+        }
+        break;
+      }
+      case 'colossus': {
+        const torso = new THREE.Mesh(new THREE.DodecahedronGeometry(r * 1.25), bodyMat);
+        torso.position.y = r * 2.0;
+        body.add(torso);
+        const chest = new THREE.Mesh(new THREE.IcosahedronGeometry(r * 0.42), std('#fca5a5', { emissive: '#ef4444', emissiveIntensity: 1.2, roughness: 0.3 }));
+        chest.position.set(0, r * 2.1, r * 1.05);
+        body.add(chest);
+        const head = new THREE.Mesh(new THREE.DodecahedronGeometry(r * 0.5), bodyMat);
+        head.position.y = r * 3.5;
+        body.add(head);
+        mkEyes([[r * 0.3, r * 3.55, r * 0.3], [r * 0.3, r * 3.55, -r * 0.3]], '#ef4444', r * 0.12);
+        for (const side of [-1, 1]) {
+          addLimb([0, r * 2.7, side * r * 0.95], new THREE.CapsuleGeometry(r * 0.4, r * 1.7, 4, 8), { phase: side > 0 ? 0 : Math.PI, amp: 0.35, speed: 3.2, off: [0, -r * 1.15, 0] });
+          mkLeg([0, r * 0.9, side * r * 0.5], r * 0.4, r * 1.1, side > 0 ? 0 : Math.PI, 3);
         }
         break;
       }

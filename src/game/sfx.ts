@@ -19,10 +19,26 @@ interface MusicNodes {
 
 export class Sfx {
   muted = false;
+  volume = 1;
   private ac: AudioContext | null = null;
   private last = new Map<SoundName, number>();
   private windGain: GainNode | null = null;
   private ambT = 0;
+  private outGain: GainNode | null = null;
+
+  private out(ac: AudioContext): GainNode {
+    if (!this.outGain) {
+      this.outGain = ac.createGain();
+      this.outGain.gain.value = this.volume;
+      this.outGain.connect(ac.destination);
+    }
+    return this.outGain;
+  }
+
+  setVolume(v: number) {
+    this.volume = v;
+    if (this.outGain && this.ac) this.outGain.gain.setTargetAtTime(v, this.ac.currentTime, 0.05);
+  }
 
   private ensure(): AudioContext | null {
     try {
@@ -74,7 +90,7 @@ export class Sfx {
   private buildMusic(ac: AudioContext): MusicNodes {
     const master = ac.createGain();
     master.gain.value = 0;
-    master.connect(ac.destination);
+    master.connect(this.out(ac));
 
     const filter = ac.createBiquadFilter();
     filter.type = 'lowpass';
@@ -175,7 +191,7 @@ export class Sfx {
     lg.connect(g.gain);
     src.connect(f);
     f.connect(g);
-    g.connect(ac.destination);
+    g.connect(this.out(ac));
     src.start();
     lfo.start();
     this.windGain = g;
@@ -201,7 +217,7 @@ export class Sfx {
       g.gain.value = 0;
       src.connect(f);
       f.connect(g);
-      g.connect(ac.destination);
+      g.connect(this.out(ac));
       src.start();
       this.rainGain = g;
     }
@@ -279,7 +295,7 @@ export class Sfx {
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g);
-    g.connect(ac.destination);
+    g.connect(this.out(ac));
     o.start(t);
     o.stop(t + dur + 0.02);
   }
@@ -299,7 +315,7 @@ export class Sfx {
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     src.connect(f);
     f.connect(g);
-    g.connect(ac.destination);
+    g.connect(this.out(ac));
     src.start(t);
   }
 }

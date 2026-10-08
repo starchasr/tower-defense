@@ -1,7 +1,7 @@
 export type Vec = { x: number; y: number };
 
 export type TowerKind = 'gun' | 'frost' | 'cannon' | 'sniper' | 'tesla' | 'flame' | 'missile' | 'amp' | 'bank';
-export type EnemyKind = 'grunt' | 'runner' | 'brute' | 'flyer' | 'healer' | 'boss' | 'splitter' | 'shield' | 'phantom' | 'wrecker';
+export type EnemyKind = 'grunt' | 'runner' | 'brute' | 'flyer' | 'healer' | 'boss' | 'splitter' | 'shield' | 'phantom' | 'wrecker' | 'colossus';
 export type TargetMode = 'first' | 'last' | 'strong' | 'close';
 export type GameState = 'menu' | 'playing' | 'paused' | 'gameover' | 'victory' | 'stories' | 'levels' | 'briefing';
 
@@ -89,6 +89,7 @@ export interface EnemyDef {
   cloakTime?: number;
   slam?: { radius: number; stun: number; every: number };
   disable?: { radius: number; stun: number; channel: number; every: number };
+  slowImmune?: boolean;
 }
 
 export interface Enemy {
@@ -224,6 +225,7 @@ export interface UiSnapshot {
   runStats: { kills: number; goldEarned: number; leaks: number; built: number; dmg: number };
   showRanges: boolean;
   gfxHigh: boolean;
+  volume: number;
 }
 
 export type RenderEffect =
@@ -267,6 +269,9 @@ export interface RenderState {
   weather: WeatherMode;
   photo: boolean;
   showRanges: boolean;
+  barrels: { x: number; y: number }[];
+  coins: { id: number; x: number; y: number; t: number }[];
+  volume: number;
   ghost: GhostInfo | null;
   countdown: number;
   nextWaveNum: number;

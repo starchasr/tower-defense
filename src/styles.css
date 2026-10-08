@@ -496,6 +496,22 @@ button.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0
 }
 .run-stats b { color: var(--text); margin-left: 8px; }
 
+.settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(13, 20, 36, 0.75);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  min-width: min(320px, 86vw);
+}
+.vol-row { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--dim); }
+.vol-row input { flex: 1; accent-color: var(--accent); }
+.vol-row b { color: var(--text); min-width: 42px; text-align: right; }
+
+.cancel-pill { display: none; }
+
 .cam-recenter { display: none; }
 
 .hud-mini { display: none; }
@@ -549,6 +565,22 @@ button.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0
   .mini-gold { color: var(--gold); }
 
   .minimap { width: 120px; height: auto; }
+
+  .cancel-pill {
+    display: block;
+    position: absolute;
+    bottom: 64px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 12;
+    padding: 9px 20px;
+    border-radius: 99px;
+    font-weight: 800;
+    background: linear-gradient(180deg, rgba(58, 16, 16, 0.94), rgba(34, 10, 10, 0.96));
+    border: 1px solid rgba(239, 68, 68, 0.55);
+    color: #fca5a5;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  }
 
   .run-stats { grid-template-columns: repeat(2, auto); gap: 5px 16px; font-size: 12px; }
 

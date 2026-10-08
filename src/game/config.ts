@@ -159,4 +159,5 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
   shield: { kind: 'shield', name: 'Shielded', hp: 90, speed: 52, reward: 20, armor: 1, size: 12, color: '#38bdf8', flying: false, leak: 2, shieldHp: 120, shieldRegen: 25 },
   phantom: { kind: 'phantom', name: 'Phantom', hp: 85, speed: 74, reward: 19, armor: 0, size: 12, color: '#c084fc', flying: false, leak: 1, cloakEvery: 4.2, cloakTime: 1.8 },
   wrecker: { kind: 'wrecker', name: 'Wrecker', hp: 170, speed: 56, reward: 26, armor: 2, size: 14, color: '#fb7185', flying: false, leak: 2, disable: { radius: 72, stun: 5, channel: 3, every: 9 } },
+  colossus: { kind: 'colossus', name: 'Colossus', hp: 2600, speed: 24, reward: 240, armor: 14, size: 26, color: '#cbd5e1', flying: false, leak: 8, slowImmune: true },
 };

@@ -8,6 +8,7 @@ import { TowerPanel } from './components/TowerPanel';
 import { WaveBox } from './components/WaveBox';
 import { Overlay } from './components/Overlay';
 import { MiniMap } from './components/MiniMap';
+import { TOWERS } from './game/config';
 
 export default function App() {
   const glRef = useRef<HTMLCanvasElement | null>(null);
@@ -54,6 +55,11 @@ export default function App() {
       </div>
       {game && ui && (
         <>
+          {ui.selKind && ui.state === 'playing' && !ui.photo && (
+            <button className="cancel-pill" onClick={() => game.selectKind(null)}>
+              ✕ Cancel {TOWERS[ui.selKind].name}
+            </button>
+          )}
           <div className={`hud-mini${hudOpen ? ' hidden' : ''}`}>
             <span className="mini-lives">♥ {ui.lives}</span>
             <span className="mini-gold">${ui.money}</span>

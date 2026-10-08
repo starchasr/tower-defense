@@ -103,6 +103,9 @@ export class Game {
   runStats = { kills: 0, goldEarned: 0, leaks: 0, built: 0, dmg: 0 };
   showRanges = false;
   gfxHigh = true;
+  volume = 1;
+  barrels: { id: number; x: number; y: number }[] = [];
+  coins: { id: number; x: number; y: number; t: number; amount: number }[] = [];
   private ach: Record<string, number> = loadAch();
   private panKeys = new Set<string>();
 
@@ -129,6 +132,12 @@ export class Game {
     }
     this.gfxHigh = localStorage.getItem('nd_gfx') !== '0';
     this.renderer.setQuality(this.gfxHigh);
+    try {
+      this.volume = Number(localStorage.getItem('nd_vol') ?? 1) || 1;
+      this.sfx.setVolume(this.volume);
+    } catch {
+      // ignore
+    }
     document.addEventListener('visibilitychange', this.onVisibility);
     glCanvas.addEventListener('pointermove', this.onPointerMove);
     glCanvas.addEventListener('pointerdown', this.onPointerDown);
@@ -327,6 +336,49 @@ export class Game {
     this.emit();
   }
 
+  setVolume(v: number) {
+    this.volume = v;
+    this.sfx.setVolume(v);
+    try {
+      localStorage.setItem('nd_vol', String(v));
+    } catch {
+      // ignore
+    }
+    this.emit();
+  }
+
+  private spawnBarrels() {
+    if (this.barrels.length >= 3) return;
+    const path = GROUND_PATH;
+    for (let n = this.barrels.length; n < 3; n++) {
+      const i = 6 + Math.floor(Math.random() * Math.max(1, path.length - 12));
+      const p = path[i];
+      const a = path[Math.max(0, i - 1)];
+      const b = path[Math.min(path.length - 1, i + 1)];
+      let dx = b.x - a.x;
+      let dy = b.y - a.y;
+      const dl = Math.hypot(dx, dy) || 1;
+      dx /= dl;
+      dy /= dl;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const off = (18 + Math.random() * 16) * side;
+      this.barrels.push({ id: this.nextId++, x: p.x - dy * off, y: p.y + dx * off });
+    }
+  }
+
+  private explodeBarrel(b: { id: number; x: number; y: number }) {
+    this.barrels = this.barrels.filter(x => x.id !== b.id);
+    this.pushEffect({ type: 'explosion', x: b.x, y: b.y, r: 80, t: 0, life: 0.5 });
+    this.pushEffect({ type: 'ring', x: b.x, y: b.y, r: 82, t: 0, life: 0.45, color: '#fb923c' });
+    this.shake = Math.max(this.shake, 5);
+    this.sfx.play('boom');
+    for (const e of [...this.enemies.values()]) {
+      if (e.def.flying) continue;
+      const d = Math.hypot(e.x - b.x, e.y - b.y);
+      if (d < 88) this.dealDamage(e, 120 * (1 - d / 110), true);
+    }
+  }
+
   private onKeyUp = (e: KeyboardEvent) => {
     this.panKeys.delete(e.key);
   };
@@ -410,6 +462,7 @@ export class Game {
       if (this.pendingAirstrike) this.selKind = null;
     } else if (id === 'cryo') {
       for (const e of this.enemies.values()) {
+        if (e.def.slowImmune) continue;
         e.slowFactor = 0.05;
         e.slowT = 2.5;
       }
@@ -483,6 +536,8 @@ export class Game {
     this.queue = [];
     this.effects = [];
     this.runStats = { kills: 0, goldEarned: 0, leaks: 0, built: 0, dmg: 0 };
+    this.barrels = [];
+    this.coins = [];
     this.wave = 0;
     this.score = 0;
     this.speed = 1;
@@ -525,6 +580,7 @@ export class Game {
     this.bannerLabel = mod ? mod.name : '';
     if (this.endless && this.wave >= 40) this.unlock('endless10');
     if (this.money >= 1500) this.unlock('rich');
+    this.spawnBarrels();
     if (mod) this.floatText(W / 2, 130, `Wave ${this.wave}: ${mod.name} — ${mod.desc}`, mod.tint);
     this.pushEffect({ type: 'ring', x: GROUND_PATH[0].x, y: GROUND_PATH[0].y, r: 30, t: 0, life: 0.6, color: '#67e8f9' });
     this.pushEffect({ type: 'ring', x: GROUND_PATH[0].x, y: GROUND_PATH[0].y, r: 64, t: 0, life: 0.8, color: '#a5f3fc' });
@@ -778,6 +834,9 @@ export class Game {
     if (this.runStats.kills >= 100) this.unlock('century');
     if (this.combo >= 15) this.unlock('combo15');
     if (tower && Math.floor(tower.kills / 15) >= 1) this.unlock('veteran');
+    if (Math.random() < 0.08) {
+      this.coins.push({ id: this.nextId++, x: e.x, y: e.y, t: 0, amount: Math.max(5, Math.ceil(e.reward * 0.6)) });
+    }
     if (!e.def.flying) {
       this.pushEffect({ type: 'splat', x: e.x, y: e.y, size: e.def.size * 1.2, color: e.def.color, t: 0, life: 16 });
     }
@@ -1164,6 +1223,21 @@ export class Game {
       }
       if (e.wp >= path.length) leaks.push(e);
     }
+    if (this.barrels.length) {
+      for (const e of [...this.enemies.values()]) {
+        if (e.def.flying) continue;
+        for (const b of [...this.barrels]) {
+          if (Math.hypot(e.x - b.x, e.y - b.y) < 15) {
+            this.explodeBarrel(b);
+            break;
+          }
+        }
+      }
+    }
+    if (this.coins.length) {
+      for (const c of this.coins) c.t += dt;
+      this.coins = this.coins.filter(c => c.t < 7);
+    }
     for (const e of leaks) {
       this.enemies.delete(e.id);
       this.lives -= e.def.leak;
@@ -1262,8 +1336,10 @@ export class Game {
           if (this.enemies.has(target.id)) {
             this.burst(p.x, p.y, p.color, 3, 40);
             if (p.slowTime > 0) {
-              target.slowFactor = target.slowT > 0 ? Math.min(target.slowFactor, p.slowFactor) : p.slowFactor;
-              target.slowT = Math.max(target.slowT, p.slowTime);
+              if (!target.def.slowImmune) {
+                target.slowFactor = target.slowT > 0 ? Math.min(target.slowFactor, p.slowFactor) : p.slowFactor;
+                target.slowT = Math.max(target.slowT, p.slowTime);
+              }
             }
           }
           if (p.kind === 'frost') {
@@ -1372,6 +1448,9 @@ export class Game {
       elapsed: this.elapsed,
       weatherRain: this.effRain(),
       showRanges: this.showRanges,
+      barrels: this.barrels.map(b => ({ x: b.x, y: b.y })),
+      coins: this.coins.map(c => ({ id: c.id, x: c.x, y: c.y, t: c.t })),
+      volume: this.volume,
       weather: this.weather,
       photo: this.photoMode,
       ghost,
@@ -1524,6 +1603,19 @@ export class Game {
     if (!pos) return;
     this.hoverPoint = pos;
     this.hoverCell = { gx: Math.floor(pos.x / CELL), gy: Math.floor(pos.y / CELL) };
+    const near = this.coins.filter(c => Math.hypot(c.x - pos.x, c.y - pos.y) < 30);
+    if (near.length) {
+      let total = 0;
+      for (const c of near) {
+        total += c.amount;
+        this.coins = this.coins.filter(x => x.id !== c.id);
+      }
+      this.money += total;
+      this.floatText(pos.x, pos.y, `+$${total}`, '#fde047');
+      this.sfx.play('coin');
+      this.emit();
+      return;
+    }
     if (this.pendingAirstrike) {
       this.pendingAirstrike = false;
       this.glCanvas.style.cursor = 'default';

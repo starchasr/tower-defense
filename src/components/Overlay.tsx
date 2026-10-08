@@ -24,6 +24,31 @@ export function Overlay({ ui, game }: { ui: UiSnapshot; game: Game }) {
     return (
       <div className="overlay">
         <h2>Paused</h2>
+        <div className="settings-card">
+          <label className="vol-row">
+            <span>Volume</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={ui.volume}
+              onChange={e => game.setVolume(Number(e.target.value))}
+            />
+            <b>{Math.round(ui.volume * 100)}%</b>
+          </label>
+          <button
+            className="danger"
+            onClick={() => {
+              if (confirm('Reset all campaign progress, stars and achievements?')) {
+                ['nd_campaign_v1', 'nd_campaign_stars_v1', 'nd_ach_v1'].forEach(k => localStorage.removeItem(k));
+                location.reload();
+              }
+            }}
+          >
+            Reset progress
+          </button>
+        </div>
         <button className="primary big" onClick={() => game.togglePause()}>Resume</button>
       </div>
     );
