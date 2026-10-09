@@ -457,7 +457,6 @@ export class Renderer3D {
   private sun!: THREE.DirectionalLight;
   private moon!: THREE.DirectionalLight;
   private hemi!: THREE.HemisphereLight;
-  private nightSkyMat!: THREE.MeshBasicMaterial;
   private fillLight!: THREE.DirectionalLight;
   private clouds: { group: THREE.Group; blob: THREE.Mesh; x0: number; z: number; y0: number; speed: number; scale: number }[] = [];
   private cloudMat!: THREE.MeshStandardMaterial;
@@ -1757,7 +1756,6 @@ export class Renderer3D {
     this.hemi.color.set('#a8c2e8').lerp(new THREE.Color('#2b3d63'), ph.night);
     this.hemi.groundColor.set('#3d4a33').lerp(new THREE.Color('#1a2231'), ph.night);
     this.fillLight.intensity = 0.12 + 0.25 * ph.daylight;
-    this.nightSkyMat.opacity = ph.night * 0.97;
     this.scene.environmentIntensity = 0.12 + 0.35 * ph.daylight;
     this.renderer.toneMappingExposure = 1.12 - 0.14 * ph.night;
     const lanternGlow = 0.15 + 1.25 * ph.night + 0.12 * Math.sin(s.elapsed * 7.3) * ph.night;
